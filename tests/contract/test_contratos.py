@@ -60,6 +60,7 @@ def test_esquemas_versionados_batem_com_o_gerador():
         ROOT / "examples" / "consulta_clientes" / "selectors.json",
         ROOT / "examples" / "cadastro_pedidos" / "selectors.json",
         ROOT / "tests" / "fixtures" / "adv-selectors.json",
+        ROOT / "tests" / "fixtures" / "desafio-selectors.json",  # 1.1.0: estratégia label e expected.label
     ],
 )
 def test_registros_dos_exemplos_seguem_o_esquema_e_o_leitor(path: Path):

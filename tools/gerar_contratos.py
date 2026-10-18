@@ -79,6 +79,13 @@ def schemas() -> dict[str, dict[str, Any]]:
                     "name": nonempty(200),
                 },
             },
+            {
+                # 1.1.0: campo pelo texto EXATO do rótulo visível (inclusive o único <label> irmão; nunca posição)
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["strategy", "text"],
+                "properties": {"strategy": {"const": "label"}, "text": nonempty(200)},
+            },
         ]
     }
     locators = {"type": "array", "maxItems": 5, "items": {"$ref": "#/$defs/locator"}}
@@ -113,6 +120,7 @@ def schemas() -> dict[str, dict[str, Any]]:
                     "role": nonempty(40),
                     "name": nonempty(200),
                     "type": nonempty(40),
+                    "label": nonempty(200),
                 },
                 "dependentRequired": {"name": ["role"]},
             },

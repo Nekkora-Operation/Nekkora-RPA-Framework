@@ -101,6 +101,24 @@
               "maxLength": 200
             }
           }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "strategy",
+            "text"
+          ],
+          "properties": {
+            "strategy": {
+              "const": "label"
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
         }
       ]
     },
@@ -129,6 +147,11 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 40
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
         }
       },
       "dependentRequired": {
