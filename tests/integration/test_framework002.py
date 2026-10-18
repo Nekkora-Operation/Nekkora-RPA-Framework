@@ -17,6 +17,7 @@ from nekkora_rpa.errors import (
     InvalidConfiguration,
     SecurityPolicyBlocked,
     TargetAmbiguous,
+    TargetIdentityMismatch,
     TargetNotFound,
 )
 from nekkora_rpa.tabular import Column, TabularSchema, read_xlsx
@@ -105,6 +106,37 @@ def test_rotulo_duplicado_e_ambiguo(desafio):  # type: ignore[no-untyped-def]
     )
 
 
+def test_rotulo_irmao_nao_identifica_campo_que_divide_o_conteiner(clean_lab):  # type: ignore[no-untyped-def]
+    # E2E-001 (mutação M18): o <label> irmão só é a identidade do ÚNICO campo do contêiner; achado por outra estratégia,
+    # um campo que divide o contêiner com outro não "herda" o rótulo (controle positivo: contêiner com um campo só)
+    alvo = {"tag": "input", "label": "Email"}
+    reg = SelectorRegistry.from_text(
+        json.dumps(
+            {
+                "schema": "nekkora-rpa/selectors",
+                "version": "1.1.0",
+                "system": "x",
+                "targets": {
+                    "x.dividido": {"preferred": {"strategy": "id", "value": "k2"}, "expected": alvo},
+                    "x.unico": {"preferred": {"strategy": "id", "value": "k3"}, "expected": alvo},
+                },
+            }
+        ),
+        environment="lab",
+    )
+    h = Harness(clean_lab, reg)
+    try:
+        h.actions.navigate("/desafio/index.html")
+        h.page.evaluate("""() => document.body.insertAdjacentHTML('beforeend',
+            '<div><label>Email</label><input id="k1"><input id="k2"></div><div><label>Email</label><input id="k3"></div>')""")
+        h.actions.fill("x.unico", "ok")
+        with pytest.raises(TargetIdentityMismatch):
+            h.actions.fill("x.dividido", "x")
+        assert h.page.evaluate("() => document.getElementById('k2').value") == ""
+    finally:
+        h.close()
+
+
 def test_rotulo_alterado_entre_rodadas_nao_e_encontrado(desafio):  # type: ignore[no-untyped-def]
     a = desafio.actions
     a.navigate("/desafio/index.html?v=trocado")
@@ -154,6 +186,33 @@ def test_download_redirecionado_para_outra_origem(downloads, tmp_path: Path):  #
     assert downloads.lab.oracle()["external_hits"] == 0 and list(tmp_path.iterdir()) == []
 
 
+def test_download_de_outra_origem_recusado_mesmo_se_a_rede_falhar(downloads, tmp_path: Path):  # type: ignore[no-untyped-def]
+    # 2ª barreira (E2E-001, mutação M15): simula a guarda de rede FALHANDO (rota removida) e a outra origem servindo um
+    # anexo XLSX; o download precisa ser recusado pela origem do próprio arquivo, sem deixar nada na pasta
+    ctx = downloads.session._context
+    ctx.unroute("**/*")
+    externo = downloads.lab.external_url
+
+    def falha_da_rede(route):  # type: ignore[no-untyped-def]
+        if route.request.url.startswith(externo):
+            route.fulfill(
+                status=200,
+                body=XLSX_MAGIC + b"\0" * 64,
+                headers={"Content-Type": "application/octet-stream", "Content-Disposition": "attachment"},
+            )
+        else:
+            route.continue_()
+
+    ctx.route("**/*", falha_da_rede)
+    # link DIRETO para a outra origem (a rota não vê saltos de redirecionamento)
+    downloads.page.evaluate("u => document.getElementById('dl-externo').href = u", externo + "/planilha.xlsx")
+    with pytest.raises(SecurityPolicyBlocked) as e:
+        downloads.actions.download(
+            "dl.externo", dest_dir=tmp_path, file_name="x.xlsx", magic=XLSX_MAGIC, timeout_ms=5_000
+        )
+    assert e.value.detail == "DOWNLOAD_ORIGIN" and list(tmp_path.iterdir()) == []
+
+
 def test_clique_sem_download(downloads, tmp_path: Path):  # type: ignore[no-untyped-def]
     with pytest.raises(ActionTimeout) as e:
         downloads.actions.download("dl.nada", dest_dir=tmp_path, file_name="x.xlsx", timeout_ms=1_500)
@@ -193,7 +252,7 @@ def test_ler_texto_por_padrao_ancorado(desafio):  # type: ignore[no-untyped-def]
             a.fill(key(label), DESAFIO[rodada][label])
         m = a.mark(key("First Name"))
         a.click("desafio.form.enviar", postcondition=lambda m=m: a.replaced(m))
-    padrao = r"^Congratulations! Your success rate is \d+% \( \d+ out of \d+ fields\) in \d+ milliseconds$"
+    padrao = r"^Your success rate is \d+% \( \d+ out of \d+ fields\) in \d+ milliseconds$"
     texto = a.read_text_matching(padrao, step_id="FIM-01")
     assert "100%" in texto and "70 out of 70" in texto
     assert texto not in json.dumps([e.to_dict() for e in desafio.events.events])

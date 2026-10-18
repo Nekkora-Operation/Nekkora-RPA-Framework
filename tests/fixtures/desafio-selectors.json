@@ -115,12 +115,12 @@
    "preferred": {
     "strategy": "role",
     "role": "link",
-    "name": "Baixar planilha"
+    "name": "Download Excel cloud_download"
    },
    "expected": {
     "tag": "a",
     "role": "link",
-    "name": "Baixar planilha"
+    "name": "Download Excel cloud_download"
    }
   },
   "desafio.fim.resultado": {

@@ -4,11 +4,13 @@
 <h1 id="titulo-desafio">Desafio de formulários</h1>
 <p id="instrucoes">Transfira cada linha da planilha para o formulário. Os campos mudam de posição a cada envio, por 10 rodadas.
 O cronômetro começa no Start.</p>
-<a id="baixar" href="/desafio/dados.xlsx">Baixar planilha</a>
+<a id="baixar" href="/desafio/dados.xlsx">Download Excel <i class="icone">cloud_download</i></a>
+<!-- como no site: o ícone é ligadura de TEXTO, parte do nome acessível do link -->
 <div><button id="iniciar" type="button">Start</button></div>
 <form id="form-desafio" onsubmit="return false"><div id="campos"></div>
   <input type="submit" value="Submit"></form>
 <p id="rodada" role="status"></p>
+<p id="parabens" class="oculto">Congratulations!</p>
 <p id="resultado" class="oculto" role="status"></p>
 </main>
 <script>
@@ -50,7 +52,8 @@ document.getElementById('form-desafio').addEventListener('submit', async () => {
     const ms = Math.round(performance.now() - inicio);
     document.getElementById('form-desafio').remove();  // como o *ngIf do site: o formulário sai do DOM
     const r = document.getElementById('resultado');
-    r.textContent = 'Congratulations! Your success rate is ' + Math.round(corretos * 100 / 70) + '% ( ' + corretos +
+    document.getElementById('parabens').classList.remove('oculto');  // como no site: parabéns e placar em elementos separados
+    r.textContent = 'Your success rate is ' + Math.round(corretos * 100 / 70) + '% ( ' + corretos +
       ' out of 70 fields) in ' + ms + ' milliseconds';
     r.classList.remove('oculto'); iniciado = false;
   } else montar();
