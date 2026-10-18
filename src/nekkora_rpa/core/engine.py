@@ -5,7 +5,9 @@ Regras centrais:
 - Uma transação só é tentada de novo (no mesmo lote ou numa retomada) se NENHUMA ação de efeito colateral foi
   despachada: falha técnica sem efeito → ``FAILED_TECHNICAL`` (reprocessável); falha depois de efeito possível →
   ``OUTCOME_UNKNOWN`` (nunca reprocessada automaticamente).
-- Na retomada, transação encontrada EM ANDAMENTO passa por ``reconcile``; sem prova, fica ``OUTCOME_UNKNOWN``.
+- Desfecho desconhecido passa por ``reconcile`` (na mesma execução, ou na retomada se a execução foi interrompida
+  com a transação EM ANDAMENTO): feito → ``SUCCEEDED`` sem repetir; comprovadamente não feito → pode ser tentado de
+  novo; sem prova → fica ``OUTCOME_UNKNOWN``.
 - Destino que falha depois de receber → ``OUTCOME_UNKNOWN`` (salvo destino idempotente e nenhum efeito).
 - Segurança, configuração, cancelamento, checkpoint e entrada indisponível param o lote; falhas técnicas seguidas
   acima do limite também. Não existe "continuar em qualquer erro".
@@ -46,6 +48,7 @@ from .contracts import (
     DeliveryStatus,
     InputProvider,
     ProcessResult,
+    Reconciliation,
     ReconciliationVerdict,
     ResultSink,
     RpaProcess,
@@ -307,17 +310,8 @@ class Engine:
 
         # retomada de transação interrompida: só a reconciliação decide; nunca reprocessar às cegas
         if prior is not None and prior.status is TransactionStatus.IN_PROGRESS:
-            ctx.transaction = TransactionScope(tx, Deadline.after_ms(self.config.timeouts.transaction_ms, self.clock))
-            ctx.emit(EventCode.RECONCILIATION_STARTED)
-            try:
-                rec = self.process.reconcile(rt, item)
-                verdict = rec.verdict
-            except Exception as exc:  # noqa: BLE001
-                verdict = ReconciliationVerdict.UNKNOWN
-                ctx.emit(EventCode.RECONCILIATION_COMPLETED, outcome=verdict.value, cause_type=_type_name(exc))
-            else:
-                ctx.emit(EventCode.RECONCILIATION_COMPLETED, outcome=verdict.value)
-            ctx.transaction = None
+            rec = self._reconcile(rt, item, tx)
+            verdict = rec.verdict
             if verdict is ReconciliationVerdict.DONE:
                 status, result = TransactionStatus.SUCCEEDED, rec.result or ProcessResult()
                 side_effects = max(side_effects, 1)
@@ -365,12 +359,23 @@ class Engine:
                 status = TransactionStatus.FAILED_TECHNICAL
             side_effects = scope.side_effects
             ctx.transaction = None
+            technical = error
             if status in (TransactionStatus.FAILED_TECHNICAL, TransactionStatus.CANCELLED) and side_effects > 0:
                 # o efeito pode ter acontecido antes da falha: repetir duplicaria
                 error = OutcomeUnknown(
                     OutcomeUnknownReason.ACTION_INTERRUPTED, cause_type=error.code.value if error else None
                 )
                 status = TransactionStatus.OUTCOME_UNKNOWN
+            if status is TransactionStatus.OUTCOME_UNKNOWN and stop_after is None:
+                # reconciliação controlada na mesma execução: só o estado lido do sistema decide
+                rec = self._reconcile(rt, item, tx)
+                if rec.verdict is ReconciliationVerdict.DONE:
+                    status, result, error = TransactionStatus.SUCCEEDED, rec.result or ProcessResult(), None
+                elif rec.verdict is ReconciliationVerdict.NOT_DONE:
+                    status, side_effects = TransactionStatus.FAILED_TECHNICAL, 0
+                    if technical is None or technical.category is ErrorCategory.UNKNOWN_OUTCOME:
+                        technical = NekkoraRpaError(ErrorCode.TRANSIENT_TECHNICAL_FAILURE, detail="reconciled_not_done")
+                    error = technical
             if status is TransactionStatus.FAILED_TECHNICAL and stop_after is None:
                 if local_attempt < max_attempts:
                     ctx.emit(
@@ -406,6 +411,23 @@ class Engine:
         if stop_after is not None:
             raise _Stop(stop_after)
         return report
+
+    def _reconcile(self, rt: Runtime, item: TransactionItem, tx: str) -> Reconciliation:
+        ctx = self.ctx
+        ctx.transaction = TransactionScope(tx, Deadline.after_ms(self.config.timeouts.transaction_ms, self.clock))
+        ctx.emit(EventCode.RECONCILIATION_STARTED)
+        try:
+            rec = self.process.reconcile(rt, item)
+            if not isinstance(rec, Reconciliation):
+                raise InvalidConfiguration(detail="reconciliation_type")
+        except Exception as exc:  # noqa: BLE001 — sem prova = desconhecido
+            rec = Reconciliation(ReconciliationVerdict.UNKNOWN)
+            ctx.emit(EventCode.RECONCILIATION_COMPLETED, outcome=rec.verdict.value, cause_type=_type_name(exc))
+        else:
+            ctx.emit(EventCode.RECONCILIATION_COMPLETED, outcome=rec.verdict.value)
+        finally:
+            ctx.transaction = None
+        return rec
 
     def _deliver(
         self,

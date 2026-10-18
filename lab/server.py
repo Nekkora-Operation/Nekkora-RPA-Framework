@@ -231,7 +231,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(401, {"erro": "SEM_SESSAO"})
             with st.lock:
                 st.tentativas_pedido += 1
-            fault = st.take_fault("pedidos.criar")
+            fault = st.take_fault("pedidos.criar:" + str(body.get("ref", ""))) or st.take_fault("pedidos.criar")
+            if fault is not None and fault.mode == "delay":
+                time.sleep(fault.ms / 1000)  # o servidor continua e GRAVA mesmo que o cliente desista/caia
+                fault = None
             if fault is not None and fault.mode in ("error500", "drop_before"):
                 # NÃO registrou: falha antes de gravar
                 if fault.mode == "drop_before":

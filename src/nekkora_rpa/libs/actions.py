@@ -1,5 +1,5 @@
 """API pública de ações: ``click``, ``double_click``, ``fill``, ``wait_visible``, ``wait_hidden``, ``exists``,
-``read_text``, ``navigate`` e ``expect_new_page``.
+``is_visible``, ``read_text``, ``navigate`` e ``expect_new_page``.
 
 Toda ação que depende de elemento recebe a CHAVE do registro (nunca um seletor) e, opcionalmente, ``step_id`` para
 rastreabilidade. Cada chamada:
@@ -442,6 +442,28 @@ class Actions:
             return True
 
         return self._run("exists", key, step_id, deadline, body, retry=NO_RETRY)
+
+    def is_visible(self, key: str, *, step_id: str | None = None) -> bool:
+        """Consulta sem espera: ``True`` só se o alvo existe, tem identidade verificada e está visível agora.
+        Ausente → ``False``; ambíguo ou identidade divergente → erro (nunca "visível")."""
+        self._check_step(step_id)
+        target = self.registry.get(key)
+        deadline = self.ctx.action_deadline(self.ctx.config.timeouts.action_ms)
+
+        def body(_: int) -> bool:
+            page = self.page
+            self._require_origin(page, key, step_id)
+            handle = self._resolve(page, target, deadline, step_id, wait=False)
+            if handle is None:
+                return False
+            try:
+                return handle.is_visible()
+            except PlaywrightError:
+                return False
+            finally:
+                _dispose(handle)
+
+        return self._run("is_visible", key, step_id, deadline, body, retry=NO_RETRY)
 
     def read_text(self, key: str, *, timeout_ms: int | None = None, step_id: str | None = None) -> str:
         """Lê o texto (ou o valor, em campos) do alvo verificado. O retorno é do processo: nunca é registrado."""

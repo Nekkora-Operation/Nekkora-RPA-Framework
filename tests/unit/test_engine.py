@@ -442,3 +442,46 @@ def test_resumo_persistido(tmp_path: Path):
     run(Fake({"b": rejected}), items("a", "b"), run_dir=tmp_path)
     s = json.loads((tmp_path / "summary.json").read_text(encoding="utf-8"))
     assert s["status"] == "COMPLETED" and s["counts"] == {"SUCCEEDED": 1, "BUSINESS_REJECTED": 1}
+
+
+# ------------------------------------------------------------------------------------------------ reconciliação na execução
+def efeito_e_falha_na_primeira(rt: Runtime, item: TransactionItem, n: int) -> ProcessResult:
+    if n == 1:
+        rt.ctx.mark_side_effect()
+        raise TransientTechnicalFailure(detail="comunicacao")
+    return ProcessResult({"ok": True})
+
+
+def test_desconhecido_reconciliado_como_feito_nao_repete():
+    proc = Fake({"a": efeito_e_falha_na_primeira})
+    proc.reconcile_verdicts["a"] = ReconciliationVerdict.DONE
+    summary, events, sink = run(proc, items("a"), max_transaction_attempts=3)
+    assert statuses(summary) == [S.SUCCEEDED] and proc.calls == {"a": 1} and proc.reconciled == ["a"]
+    assert list(sink.delivered.values())[0].output == {"reconciliado": True}
+    assert "RECONCILIATION_COMPLETED" in events.codes()
+
+
+def test_desconhecido_reconciliado_como_nao_feito_e_tentado_de_novo_com_seguranca():
+    proc = Fake({"a": efeito_e_falha_na_primeira})
+    proc.reconcile_verdicts["a"] = ReconciliationVerdict.NOT_DONE
+    summary, _, _ = run(proc, items("a"), max_transaction_attempts=2)
+    assert statuses(summary) == [S.SUCCEEDED] and proc.calls == {"a": 2} and proc.recovers == 1
+
+
+def test_desconhecido_reconciliado_como_nao_feito_sem_tentativas_fica_reprocessavel():
+    proc = Fake({"a": efeito_e_falha_na_primeira})
+    proc.reconcile_verdicts["a"] = ReconciliationVerdict.NOT_DONE
+    summary, _, _ = run(proc, items("a"), max_transaction_attempts=1)
+    t = summary.transactions[0]
+    assert t.status is S.FAILED_TECHNICAL and t.error_code == "TRANSIENT_TECHNICAL_FAILURE"
+
+
+def test_reconciliacao_que_falha_e_desconhecido():
+    class Quebra(Fake):
+        def reconcile(self, rt: Runtime, item: TransactionItem) -> Reconciliation:
+            raise RuntimeError("tela fora " + SENT)
+
+    proc = Quebra({"a": efeito_e_falha_na_primeira})
+    summary, events, _ = run(proc, items("a"), max_transaction_attempts=3)
+    assert statuses(summary) == [S.OUTCOME_UNKNOWN] and proc.calls == {"a": 1}
+    assert SENT not in json.dumps([e.to_dict() for e in events.events])

@@ -1,0 +1,33 @@
+{
+  "schema": "nekkora-rpa/selectors",
+  "version": "1.0.0",
+  "system": "clientes",
+  "targets": {
+    "clientes.login.usuario": {"page": "login", "preferred": {"strategy": "id", "value": "usuario"},
+                               "expected": {"tag": "input", "type": "text", "role": "textbox", "name": "Usuário"}},
+    "clientes.login.senha": {"page": "login", "preferred": {"strategy": "id", "value": "senha"},
+                             "expected": {"tag": "input", "type": "password"}},
+    "clientes.login.entrar": {"page": "login", "preferred": {"strategy": "css", "expression": "#entrar"},
+                              "alternatives": [{"strategy": "role", "role": "button", "name": "Entrar"}],
+                              "expected": {"tag": "button", "role": "button", "name": "Entrar"}},
+    "clientes.login.erro": {"page": "login", "preferred": {"strategy": "id", "value": "erro-login"},
+                            "expected": {"tag": "p", "role": "alert"}},
+    "clientes.consulta.titulo": {"page": "consulta", "preferred": {"strategy": "id", "value": "titulo-consulta"},
+                                 "expected": {"tag": "h1", "role": "heading", "name": "Consulta de clientes"}},
+    "clientes.consulta.codigo": {"page": "consulta", "preferred": {"strategy": "id", "value": "codigo"},
+                                 "expected": {"tag": "input", "type": "text", "role": "textbox", "name": "Código do cliente"}},
+    "clientes.consulta.consultar": {"page": "consulta", "preferred": {"strategy": "test_id", "value": "consultar"},
+                                    "alternatives": [{"strategy": "role", "role": "button", "name": "Consultar"}],
+                                    "expected": {"tag": "button", "role": "button", "name": "Consultar"}},
+    "clientes.consulta.resultado": {"page": "consulta", "preferred": {"strategy": "id", "value": "resultado"},
+                                    "expected": {"tag": "section", "role": "region", "name": "Resultado da consulta"}},
+    "clientes.consulta.nome": {"page": "consulta", "preferred": {"strategy": "css", "expression": "#resultado #res-nome"},
+                               "expected": {"tag": "dd"}},
+    "clientes.consulta.situacao": {"page": "consulta", "preferred": {"strategy": "css", "expression": "#resultado #res-situacao"},
+                                   "expected": {"tag": "dd"}},
+    "clientes.consulta.nao_encontrado": {"page": "consulta", "preferred": {"strategy": "id", "value": "nao-encontrado"},
+                                         "expected": {"tag": "p", "role": "alert"}},
+    "clientes.consulta.erro_servico": {"page": "consulta", "preferred": {"strategy": "id", "value": "erro-servico"},
+                                       "expected": {"tag": "p", "role": "alert"}}
+  }
+}

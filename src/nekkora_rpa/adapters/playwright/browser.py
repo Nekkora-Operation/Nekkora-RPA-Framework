@@ -10,6 +10,12 @@
   2. roteamento do contexto: navegação, recurso e aba nova para origem fora da lista são abortados com contagem.
   Toda requisição observada para fora da lista (inclusive saltos de redirecionamento) é contada em
   ``blocked_navigations``/``blocked_requests`` para ``navigate`` distinguir "bloqueado" de "falha de rede".
+- Transporte de TENTATIVA ÚNICA para métodos não idempotentes (POST, PUT, PATCH, DELETE...): a requisição é feita
+  uma vez por um cliente HTTP do Playwright SEM proxy (só para origens permitidas, sem seguir redirecionamento, com
+  os cookies do contexto) e a resposta — inclusive ``Set-Cookie`` — é entregue à página. Achado F9-A2: o
+  Chromium reenvia, sem avisar a página, um POST cuja conexão keep-alive reutilizada caiu sem resposta — o servidor
+  recebe DUAS vezes e a página vê sucesso. Com a guarda, a queda chega à página como erro de rede (desfecho
+  desconhecido → reconciliação), nunca como uma segunda gravação. GET/HEAD/OPTIONS seguem pela pilha do navegador.
 - Prazos padrão finitos no contexto (nenhuma operação do Playwright fica sem timeout).
 - ``close()`` é idempotente e relata falha de limpeza sem esconder a falha original de quem chamou.
 """
@@ -19,13 +25,24 @@ from __future__ import annotations
 import socket
 from collections.abc import Callable
 from types import TracebackType
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
-from playwright.sync_api import Browser, BrowserContext, Page, Playwright, Request, Route, sync_playwright
+from playwright.sync_api import (
+    APIRequestContext,
+    Browser,
+    BrowserContext,
+    Page,
+    Playwright,
+    Request,
+    Route,
+    sync_playwright,
+)
 from playwright.sync_api import Error as PlaywrightError
 
 from ...core.config import BrowserConfig, Timeouts
 from ...security.origins import OriginPolicy
+
+SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 
 class BrowserSession:
@@ -35,12 +52,15 @@ class BrowserSession:
         self.timeouts = timeouts
         self.blocked_requests = 0
         self.blocked_navigations = 0
+        self.transport_failures = 0
+        """Requisições não idempotentes cuja conexão falhou (entregues à página como erro, nunca repetidas)."""
         self.blocked_pages: list[Page] = []
         """Abas cuja navegação foi bloqueada (a aba fica numa página de erro do navegador, fora do laboratório)."""
         self._pw_cm: object | None = None
         self._pw: Playwright | None = None
         self._browser: Browser | None = None
         self._context: BrowserContext | None = None
+        self._api: APIRequestContext | None = None
         self.page: Page | None = None
         self._sink: socket.socket | None = None
 
@@ -68,16 +88,47 @@ class BrowserSession:
         self._context.set_default_navigation_timeout(self.timeouts.navigation_ms)
         self._context.route("**/*", self._guard)
         self._context.on("request", self._observe)
+        # cliente da guarda de transporte: sem proxy e sem cookie próprio (os do contexto são enviados a cada chamada)
+        self._api = self._pw.request.new_context()
         self.page = self._context.new_page()
         return self.page
 
     def _guard(self, route: Route) -> None:
         request = route.request
-        if self.origins.is_allowed(request.url):
+        if not self.origins.is_allowed(request.url):
+            self._count_blocked(request)
+            route.abort("blockedbyclient")
+            return
+        if request.method.upper() in SAFE_METHODS:
             route.continue_()
             return
-        self._count_blocked(request)
-        route.abort("blockedbyclient")
+        assert self._api is not None and self._context is not None
+        headers = {k: v for k, v in request.headers.items() if k.lower() not in ("cookie", "host", "content-length")}
+        cookies = "; ".join(f"{c['name']}={c['value']}" for c in self._context.cookies(request.url))
+        if cookies:
+            headers["cookie"] = cookies
+        try:
+            response = self._api.fetch(
+                request.url,
+                method=request.method,
+                headers=headers,
+                data=request.post_data_buffer,
+                max_redirects=0,
+                fail_on_status_code=False,
+                timeout=self.timeouts.navigation_ms,
+            )
+            body = response.body()
+        except PlaywrightError:
+            # uma única tentativa: a página recebe erro de rede (desfecho desconhecido), nunca uma 2ª gravação
+            self.transport_failures += 1
+            route.abort("connectionfailed")
+            return
+        location = response.headers.get("location")
+        if 300 <= response.status < 400 and location and not self.origins.is_allowed(urljoin(request.url, location)):
+            self._count_blocked(request)
+            route.abort("blockedbyclient")
+            return
+        route.fulfill(status=response.status, headers=response.headers, body=body)
 
     def _observe(self, request: Request) -> None:
         # vê também os saltos de redirecionamento (que o roteamento não vê); a camada de rede já os impediu de sair
@@ -104,6 +155,8 @@ class BrowserSession:
         """Fecha tudo o que esta sessão abriu. Devolve ``False`` se alguma parte falhou ao fechar."""
         ok = True
         closers: list[Callable[[], None]] = []
+        if self._api is not None:
+            closers.append(self._api.dispose)
         if self._context is not None:
             closers.append(self._context.close)
         if self._browser is not None:
@@ -118,6 +171,7 @@ class BrowserSession:
         if self._sink is not None:
             self._sink.close()
             self._sink = None
+        self._api = None
         self._context = None
         self._browser = None
         self._pw = None
