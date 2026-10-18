@@ -48,7 +48,7 @@ document.getElementById('form-desafio').addEventListener('submit', async () => {
   rodada++;
   if (rodada >= 10) {
     const ms = Math.round(performance.now() - inicio);
-    document.getElementById('form-desafio').classList.add('oculto');
+    document.getElementById('form-desafio').remove();  // como o *ngIf do site: o formulário sai do DOM
     const r = document.getElementById('resultado');
     r.textContent = 'Congratulations! Your success rate is ' + Math.round(corretos * 100 / 70) + '% ( ' + corretos +
       ' out of 70 fields) in ' + ms + ' milliseconds';
