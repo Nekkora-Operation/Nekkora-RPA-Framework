@@ -23,7 +23,8 @@ from ..observability.safety import is_token
 from .contracts import DeliveryStatus, TransactionStatus
 
 SCHEMA = "nekkora-rpa/checkpoint"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
+READABLE = frozenset({"1.0.0", "1.1.0"})  # retomada de checkpoints gravados pela 0.1.0
 
 
 @dataclass
@@ -84,7 +85,7 @@ class CheckpointStore:
             expected = "sha256:" + hashlib.sha256(_canonical(body).encode("utf-8")).hexdigest()
             if not hmac.compare_digest(str(raw["integrity"]), expected):
                 raise CheckpointCorrupted(detail="integrity")
-            if body.get("schema") != SCHEMA or body.get("version") != VERSION:
+            if body.get("schema") != SCHEMA or body.get("version") not in READABLE:
                 raise CheckpointCorrupted(detail="version")
             if body.get("process_name") != self.process_name:
                 raise CheckpointCorrupted(detail="other_process")

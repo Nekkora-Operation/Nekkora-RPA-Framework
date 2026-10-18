@@ -16,7 +16,9 @@ from ..errors.exceptions import InvalidConfiguration
 from ..observability.safety import KEY, TOKEN
 
 SCHEMA = "nekkora-rpa/selectors"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
+VERSIONS = frozenset({"1.0.0", "1.1.0"})
+"""1.1.0 (aditiva): estratégia ``label`` e evidência ``expected.label`` (rótulo visível do campo)."""
 MAX_EXPRESSION = 1000
 
 
@@ -27,6 +29,9 @@ class Strategy(StrEnum):
     NAME = "name"
     TEST_ID = "test_id"
     ROLE = "role"
+    LABEL = "label"
+    """Campo pelo texto EXATO do rótulo visível: ``<label for>``, rótulo envolvente, ``aria-labelledby`` (via
+    ``get_by_label``) ou o ÚNICO ``<label>`` irmão de um único campo no mesmo contêiner. Não é posicional."""
 
 
 @dataclass(frozen=True)
@@ -39,6 +44,7 @@ class Locator:
     value: str | None = None
     role: str | None = None
     name: str | None = None
+    text: str | None = None
 
 
 @dataclass(frozen=True)
@@ -49,10 +55,12 @@ class Expected:
     role: str | None = None
     name: str | None = None
     type: str | None = None
+    label: str | None = None
+    """Rótulo visível exato (ver ``Strategy.LABEL``); evidência forte quando o nome acessível é vazio."""
 
     @property
     def strong(self) -> bool:
-        return self.name is not None
+        return self.name is not None or self.label is not None
 
 
 @dataclass(frozen=True)
@@ -98,7 +106,7 @@ def _str(v: Any, what: str, limit: int = 200) -> str:
     return v
 
 
-def _locator(raw: Any) -> Locator:
+def _locator(raw: Any, version: str = VERSION) -> Locator:
     if not isinstance(raw, dict) or "strategy" not in raw:
         raise _fail("selectors_locator")
     try:
@@ -108,6 +116,11 @@ def _locator(raw: Any) -> Locator:
     if strategy in (Strategy.CSS, Strategy.XPATH):
         d = _obj(raw, {"strategy", "expression"}, {"strategy", "expression"}, "locator")
         return Locator(strategy, expression=_str(d["expression"], "expression", MAX_EXPRESSION))
+    if strategy is Strategy.LABEL:
+        if version == "1.0.0":
+            raise _fail("selectors_strategy_unsupported")
+        d = _obj(raw, {"strategy", "text"}, {"strategy", "text"}, "locator")
+        return Locator(strategy, text=" ".join(_str(d["text"], "text").split()))
     if strategy is Strategy.ROLE:
         d = _obj(raw, {"strategy", "role", "name"}, {"strategy", "role", "name"}, "locator")
         role = _str(d["role"], "role", 40)
@@ -118,8 +131,9 @@ def _locator(raw: Any) -> Locator:
     return Locator(strategy, value=_str(d["value"], "value"))
 
 
-def _expected(raw: Any) -> Expected:
-    d = _obj(raw, {"tag", "role", "name", "type"}, {"tag"}, "expected")
+def _expected(raw: Any, version: str = VERSION) -> Expected:
+    allowed = {"tag", "role", "name", "type"} | ({"label"} if version != "1.0.0" else set())
+    d = _obj(raw, allowed, {"tag"}, "expected")
     tag = _str(d["tag"], "expected_tag", 40).lower()
     if not tag.replace("-", "").isalnum():
         raise _fail("selectors_expected_tag")
@@ -128,7 +142,8 @@ def _expected(raw: Any) -> Expected:
     typ = _str(d["type"], "expected_type", 40).lower() if "type" in d else None
     if name is not None and role is None:
         raise _fail("selectors_expected_name_requires_role")
-    return Expected(tag=tag, role=role, name=" ".join(name.split()) if name else None, type=typ)
+    label = " ".join(_str(d["label"], "expected_label").split()) if "label" in d else None
+    return Expected(tag=tag, role=role, name=" ".join(name.split()) if name else None, type=typ, label=label)
 
 
 def parse(text: str, *, environment: str) -> tuple[str, str, dict[str, Target]]:
@@ -142,7 +157,8 @@ def parse(text: str, *, environment: str) -> tuple[str, str, dict[str, Target]]:
     doc = _obj(raw, {"schema", "version", "system", "targets"}, {"schema", "version", "system", "targets"}, "root")
     if doc["schema"] != SCHEMA:
         raise _fail("selectors_schema")
-    if doc["version"] != VERSION:
+    version = doc["version"]
+    if version not in VERSIONS:
         raise _fail("selectors_version")
     system = doc["system"]
     if not isinstance(system, str) or not TOKEN.fullmatch(system) or "." in system:
@@ -168,19 +184,19 @@ def parse(text: str, *, environment: str) -> tuple[str, str, dict[str, Target]]:
                 v = _obj(var, {"preferred", "alternatives"}, {"preferred"}, "variant")
                 if not isinstance(env, str) or not TOKEN.fullmatch(env):
                     raise _fail("selectors_variants")
-                _locator(v["preferred"])  # valida todas as variantes, não só a usada
+                _locator(v["preferred"], version)  # valida todas as variantes, não só a usada
                 for a in v.get("alternatives", []):
-                    _locator(a)
+                    _locator(a, version)
                 if env == environment:
                     preferred_raw, alternatives_raw = v["preferred"], v.get("alternatives", [])
         if not isinstance(alternatives_raw, list) or len(alternatives_raw) > 5:
             raise _fail("selectors_alternatives")
-        expected = _expected(t["expected"])
-        alternatives = tuple(_locator(a) for a in alternatives_raw)
+        expected = _expected(t["expected"], version)
+        alternatives = tuple(_locator(a, version) for a in alternatives_raw)
         if alternatives and not expected.strong:
-            # usar outra estratégia só é aceitável se a identidade do MESMO alvo puder ser verificada com nome
+            # usar outra estratégia só é aceitável se a identidade do MESMO alvo puder ser verificada (nome ou rótulo)
             raise _fail("selectors_alternatives_require_strong_identity")
-        preferred = _locator(preferred_raw)
+        preferred = _locator(preferred_raw, version)
         if len({c for c in (preferred, *alternatives)}) != 1 + len(alternatives):
             raise _fail("selectors_duplicate_locator")
         page = t.get("page")

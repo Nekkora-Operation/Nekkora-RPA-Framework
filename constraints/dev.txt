@@ -3,6 +3,7 @@ ast_serialize==0.13.1
 attrs==26.1.0
 build==1.6.1
 colorama==0.4.6
+et_xmlfile==2.0.0
 greenlet==3.5.6
 iniconfig==2.3.1
 jsonschema==4.26.0
@@ -10,6 +11,7 @@ jsonschema-specifications==2025.9.1
 librt==0.16.0
 mypy==2.4.0
 mypy_extensions==1.1.0
+openpyxl==3.1.5
 packaging==26.3
 pathspec==1.1.1
 playwright==1.63.0

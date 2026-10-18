@@ -97,7 +97,7 @@ class RunSummary:
     def to_dict(self) -> dict[str, object]:
         return {
             "schema": "nekkora-rpa/run-summary",
-            "version": "1.0.0",
+            "version": "1.1.0",
             "execution_id": self.execution_id,
             "framework_version": __version__,
             "status": self.status.value,

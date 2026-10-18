@@ -38,6 +38,14 @@ def validate(instance: object, name: str) -> None:
     jsonschema.Draft202012Validator(schema(name)).validate(instance)
 
 
+FROZEN_1_0_0 = ["checkpoint", "events", "result", "run-summary", "selectors"]
+
+
+def test_esquemas_1_0_0_continuam_publicados_e_validos():
+    for name in FROZEN_1_0_0:
+        jsonschema.Draft202012Validator.check_schema(schema(f"{name}-1.0.0.schema.json"))
+
+
 def test_esquemas_versionados_batem_com_o_gerador():
     for name, s in gerar_contratos.schemas().items():
         assert resources.files("nekkora_rpa").joinpath("contracts", name).read_text(
@@ -55,7 +63,8 @@ def test_esquemas_versionados_batem_com_o_gerador():
     ],
 )
 def test_registros_dos_exemplos_seguem_o_esquema_e_o_leitor(path: Path):
-    validate(json.loads(path.read_text(encoding="utf-8")), "selectors-1.0.0.schema.json")
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    validate(doc, f"selectors-{doc['version']}.schema.json")
     SelectorRegistry.load(path, environment="lab")
 
 
@@ -106,17 +115,17 @@ def test_artefatos_reais_seguem_os_esquemas(tmp_path: Path):
     lines = (tmp_path / "run" / "events.jsonl").read_text(encoding="utf-8").splitlines()
     assert len(lines) > 20
     for line in lines:
-        validate(json.loads(line), "events-1.0.0.schema.json")
+        validate(json.loads(line), "events-1.1.0.schema.json")
     validate(
-        json.loads((tmp_path / "run" / "checkpoint.json").read_text(encoding="utf-8")), "checkpoint-1.0.0.schema.json"
+        json.loads((tmp_path / "run" / "checkpoint.json").read_text(encoding="utf-8")), "checkpoint-1.1.0.schema.json"
     )
     validate(
-        json.loads((tmp_path / "run" / "summary.json").read_text(encoding="utf-8")), "run-summary-1.0.0.schema.json"
+        json.loads((tmp_path / "run" / "summary.json").read_text(encoding="utf-8")), "run-summary-1.1.0.schema.json"
     )
     files = list((tmp_path / "resultados").glob("*.json"))
     assert len(files) == 3
     for f in files:
-        validate(json.loads(f.read_text(encoding="utf-8")), "result-1.0.0.schema.json")
+        validate(json.loads(f.read_text(encoding="utf-8")), "result-1.1.0.schema.json")
 
 
 def test_destino_em_memoria_e_idempotente_por_transacao():

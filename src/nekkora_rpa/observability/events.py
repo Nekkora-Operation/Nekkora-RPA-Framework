@@ -14,7 +14,7 @@ from enum import StrEnum
 from .safety import is_token
 
 SCHEMA = "nekkora-rpa/events"
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"  # 1.1.0 (aditiva): ações download/mark, códigos TABULAR_INVALID/DOWNLOAD_INVALID
 
 
 class Phase(StrEnum):

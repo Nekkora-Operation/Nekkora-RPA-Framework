@@ -132,3 +132,41 @@ def test_erro_de_configuracao_nao_ecoa_valor(tmp_path: Path):
     with pytest.raises(NekkoraRpaError) as e:
         load_config(f)
     assert "SENTINELA" not in str(e.value) + repr(e.value)
+
+
+# ------------------------------------------------------------------------------------------------ 0.2.0: benchmark
+def test_benchmark_aceita_so_https_exato_fora_do_loopback():
+    p = OriginPolicy(["https://rpachallenge.com"], environment="benchmark")
+    assert p.is_allowed("https://rpachallenge.com/assets/downloadFiles/challenge.xlsx")
+    assert not p.is_allowed("https://www.rpachallenge.com/")
+    assert not p.is_allowed("http://rpachallenge.com/")
+    assert not p.is_allowed("https://fonts.googleapis.com/css")
+    for bad in (
+        ["http://rpachallenge.com"],
+        ["https://*.rpachallenge.com"],
+        ["https://127.0.0.1:8443"],
+        ["https://rpachallenge.com/caminho"],
+    ):
+        with pytest.raises(InvalidConfiguration):
+            OriginPolicy(bad, environment="benchmark")
+
+
+def test_lab_continua_so_loopback_e_ambiente_desconhecido_recusado():
+    with pytest.raises(InvalidConfiguration) as e:
+        OriginPolicy(["https://rpachallenge.com"], environment="lab")
+    assert e.value.detail == "allowed_origins_not_lab"
+    with pytest.raises(InvalidConfiguration):
+        OriginPolicy(["https://rpachallenge.com"], environment="prod")
+
+
+def test_config_benchmark_e_downloads():
+    c = cfg(
+        runtime={
+            "environment": "benchmark",
+            "allowed_origins": ["https://rpachallenge.com"],
+            "base_url": "https://rpachallenge.com/",
+        },
+        browser={"accept_downloads": True},
+    )
+    assert c.environment == "benchmark" and c.browser.accept_downloads
+    assert cfg().browser.accept_downloads is False
