@@ -14,7 +14,8 @@ classifiers = ["Programming Language :: Python :: 3.12", "Private :: Do Not Uplo
 dependencies = ["playwright>=1.63,<2"]  # piso = versão homologada (1.63.0); ver constraints/lab.txt
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.11", "build>=1.2", "jsonschema>=4.23"]
+excel = ["openpyxl>=3.1.5,<4"]
+dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.11", "build>=1.2", "jsonschema>=4.23", "openpyxl>=3.1.5,<4"]
 
 [tool.setuptools.dynamic]
 version = { attr = "nekkora_rpa._version.__version__" }

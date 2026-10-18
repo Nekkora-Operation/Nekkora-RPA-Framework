@@ -28,7 +28,7 @@ _SCHEMA: dict[str, dict[str, type | tuple[type, ...]]] = {
         "jitter_ratio": (int, float),
     },
     "batch": {"max_transaction_attempts": int, "max_consecutive_technical_failures": int},
-    "browser": {"channel": str, "headless": bool},
+    "browser": {"channel": str, "headless": bool, "accept_downloads": bool},
     "paths": {"selectors": str, "run_dir": str},
 }
 
@@ -53,6 +53,8 @@ class BatchPolicy:
 class BrowserConfig:
     channel: str = "chromium"
     headless: bool = True
+    accept_downloads: bool = False
+    """Downloads só com autorização explícita; o destino é decidido por quem chama ``Actions.download``."""
 
 
 @dataclass(frozen=True)
@@ -148,7 +150,9 @@ def from_mapping(data: Mapping[str, Any], *, base_dir: Path) -> RuntimeConfig:
         timeouts=timeouts,
         retry=retry,
         batch=batch,
-        browser=BrowserConfig(channel=channel, headless=br.get("headless", True)),
+        browser=BrowserConfig(
+            channel=channel, headless=br.get("headless", True), accept_downloads=br.get("accept_downloads", False)
+        ),
         selectors_path=selectors,
         run_dir=run_dir,
     )

@@ -210,3 +210,40 @@ def test_procedencia_opcional():
     d = json.loads(doc())
     d["targets"]["clientes.login.entrar"]["provenance"] = {"studioStepId": "a44a73a5-7733-4745-8140-7442cde06414"}
     assert load(json.dumps(d)).get("clientes.login.entrar").studio_step_id.startswith("a44a")
+
+
+# ------------------------------------------------------------------------------------------------ 1.1.0: rótulo visível
+def test_estrategia_e_evidencia_de_rotulo_na_1_1_0():
+    d = json.loads(doc())
+    d["version"] = "1.1.0"
+    d["targets"]["clientes.form.email"] = {
+        "preferred": {"strategy": "label", "text": "  Email "},
+        "expected": {"tag": "input", "label": "Email"},
+    }
+    t = load(json.dumps(d)).get("clientes.form.email")
+    assert t.preferred.text == "Email" and t.expected.label == "Email" and t.expected.strong
+
+
+def test_rotulo_e_recusado_na_1_0_0():
+    d = json.loads(doc())
+    d["targets"]["clientes.form.email"] = {
+        "preferred": {"strategy": "label", "text": "Email"},
+        "expected": {"tag": "input"},
+    }
+    assert detail(json.dumps(d)) == "selectors_strategy_unsupported"
+    d["targets"]["clientes.form.email"] = {
+        "preferred": {"strategy": "id", "value": "e"},
+        "expected": {"tag": "input", "label": "Email"},
+    }
+    assert detail(json.dumps(d)) == "selectors_expected_unknown_field"
+
+
+def test_alternativo_permitido_com_rotulo_como_identidade_forte():
+    d = json.loads(doc())
+    d["version"] = "1.1.0"
+    d["targets"]["clientes.form.email"] = {
+        "preferred": {"strategy": "label", "text": "Email"},
+        "alternatives": [{"strategy": "css", "expression": "[ng-reflect-name=labelEmail]"}],
+        "expected": {"tag": "input", "label": "Email"},
+    }
+    assert len(load(json.dumps(d)).get("clientes.form.email").alternatives) == 1

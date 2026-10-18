@@ -133,6 +133,71 @@ MUTATIONS = [
         "            if False:",
         ["tests/unit/test_engine.py", "-k", "reconcil"],
     ),
+    # ---- 0.2.0 (NEKKORA-E2E-001): uma mutação por fronteira nova — dados, download, origem, rótulo, resultado, avanço
+    Mutation(
+        "M14",
+        "planilha com fórmula é recusada (dados)",
+        "tabular.py",
+        '                if formula or (isinstance(cell.value, str) and cell.value.startswith("=")):',
+        "                if False:",
+        ["tests/unit/test_tabular.py"],
+    ),
+    Mutation(
+        "M15",
+        "download só da origem autorizada",
+        "libs/actions.py",
+        "                if not self.ctx.config.origins.is_allowed(download.url):",
+        "                if False:",
+        ["tests/integration/test_framework002.py", "-k", "download"],
+    ),
+    Mutation(
+        "M16",
+        "assinatura do arquivo baixado conferida",
+        "libs/actions.py",
+        "                if magic is not None and not head.startswith(magic):",
+        "                if False:",
+        ["tests/integration/test_framework002.py", "-k", "download"],
+    ),
+    Mutation(
+        "M17",
+        "benchmark só com origem https exata fora do loopback",
+        "security/origins.py",
+        '                not url.lower().startswith("https://") or host in LOOPBACK_HOSTS or "*" in url or host is None',
+        "                host is None",
+        ["tests/unit/test_config_security.py", "-k", "benchmark"],
+    ),
+    Mutation(
+        "M18",
+        "rótulo irmão só identifica o ÚNICO campo do contêiner",
+        "adapters/playwright/resolver.py",
+        "  if (labels.length === 1 && controls.length === 1 && controls[0] === e) return norm(labels[0].textContent);",
+        "  if (labels.length >= 1 && controls.indexOf(e) >= 0) return norm(labels[0].textContent);",
+        ["tests/integration/test_framework002.py", "-k", "rotulo"],
+    ),
+    Mutation(
+        "M19",
+        "padrão de texto do resultado precisa ser ancorado",
+        "libs/actions.py",
+        '            or not (pattern.startswith("^") and pattern.endswith("$"))',
+        "            or False",
+        ["tests/integration/test_framework002.py", "-k", "padrao"],
+    ),
+    Mutation(
+        "M20",
+        "prova de avanço: nó marcado precisa sair do documento",
+        "libs/actions.py",
+        '            return not bool(mark.handle.evaluate("e => e.isConnected"))',
+        "            return True",
+        ["tests/integration/test_framework002.py"],
+    ),
+    Mutation(
+        "M21",
+        "linha vazia entre registros do CSV é recusada (não some em silêncio)",
+        "tabular.py",
+        '[tuple(v if v != "" else None for v in row) for row in rows]',
+        '[tuple(v if v != "" else None for v in row) for row in rows if row != []]',
+        ["tests/unit/test_tabular.py"],
+    ),
 ]
 
 
@@ -161,10 +226,13 @@ def run(m: Mutation) -> tuple[bool, str]:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--saida", type=Path)
+    ap.add_argument("--so", nargs="*", help="só estas mutações (ex.: M14 M15)")
     a = ap.parse_args()
     rows = ["| Mutação | Proteção | Testes | Detectada | Resultado da suíte com o defeito |", "|---|---|---|---|---|"]
     ok = True
     for m in MUTATIONS:
+        if a.so and m.ident not in a.so:
+            continue
         detected, summary = run(m)
         ok &= detected
         rows.append(

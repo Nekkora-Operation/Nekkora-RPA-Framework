@@ -83,7 +83,9 @@ class BrowserSession:
         if self.browser_config.channel == "chrome":
             kwargs["channel"] = "chrome"
         self._browser = self._pw.chromium.launch(**kwargs)  # type: ignore[arg-type]
-        self._context = self._browser.new_context(accept_downloads=False, service_workers="block")
+        self._context = self._browser.new_context(
+            accept_downloads=self.browser_config.accept_downloads, service_workers="block"
+        )
         self._context.set_default_timeout(self.timeouts.action_ms)
         self._context.set_default_navigation_timeout(self.timeouts.navigation_ms)
         self._context.route("**/*", self._guard)

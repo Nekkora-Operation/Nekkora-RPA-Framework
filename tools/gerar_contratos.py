@@ -32,6 +32,9 @@ ACTIONS = [
     "is_visible",
     "read_text",
     "navigate",
+    "download",
+    "mark",
+    "read_text_matching",
 ]
 
 
@@ -76,12 +79,19 @@ def schemas() -> dict[str, dict[str, Any]]:
                     "name": nonempty(200),
                 },
             },
+            {
+                # 1.1.0: campo pelo texto EXATO do rótulo visível (inclusive o único <label> irmão; nunca posição)
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["strategy", "text"],
+                "properties": {"strategy": {"const": "label"}, "text": nonempty(200)},
+            },
         ]
     }
     locators = {"type": "array", "maxItems": 5, "items": {"$ref": "#/$defs/locator"}}
     selectors = {
         "$schema": DRAFT,
-        "$id": "nekkora-rpa/selectors/1.0.0",
+        "$id": "nekkora-rpa/selectors/1.1.0",
         "title": "Registro de alvos por chave",
         "$comment": "Além do esquema, o leitor recusa: chave fora de '<system>.', chave JSON duplicada, alternativos "
         "sem expected.name e candidatos repetidos.",
@@ -90,7 +100,7 @@ def schemas() -> dict[str, dict[str, Any]]:
         "required": ["schema", "version", "system", "targets"],
         "properties": {
             "schema": {"const": "nekkora-rpa/selectors"},
-            "version": {"const": "1.0.0"},
+            "version": {"const": "1.1.0"},
             "system": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_:-]{0,79}$"},
             "targets": {
                 "type": "object",
@@ -110,6 +120,7 @@ def schemas() -> dict[str, dict[str, Any]]:
                     "role": nonempty(40),
                     "name": nonempty(200),
                     "type": nonempty(40),
+                    "label": nonempty(200),
                 },
                 "dependentRequired": {"name": ["role"]},
             },
@@ -144,14 +155,14 @@ def schemas() -> dict[str, dict[str, Any]]:
     }
     events = {
         "$schema": DRAFT,
-        "$id": "nekkora-rpa/events/1.0.0",
+        "$id": "nekkora-rpa/events/1.1.0",
         "title": "Evento de execução (uma linha JSON)",
         "type": "object",
         "additionalProperties": False,
         "required": ["schema", "version", "timestamp_utc", "execution_id", "event_code", "framework_version"],
         "properties": {
             "schema": {"const": "nekkora-rpa/events"},
-            "version": {"const": "1.0.0"},
+            "version": {"const": "1.1.0"},
             "timestamp_utc": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"},
             "execution_id": tok(),
             "event_code": enum(EventCode),
@@ -190,7 +201,7 @@ def schemas() -> dict[str, dict[str, Any]]:
     }
     checkpoint = {
         "$schema": DRAFT,
-        "$id": "nekkora-rpa/checkpoint/1.0.0",
+        "$id": "nekkora-rpa/checkpoint/1.1.0",
         "title": "Checkpoint local",
         "type": "object",
         "additionalProperties": False,
@@ -203,7 +214,7 @@ def schemas() -> dict[str, dict[str, Any]]:
                 "required": ["schema", "version", "process_name", "salt", "transactions"],
                 "properties": {
                     "schema": {"const": "nekkora-rpa/checkpoint"},
-                    "version": {"const": "1.0.0"},
+                    "version": {"const": "1.1.0"},
                     "process_name": tok(),
                     "salt": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
                     "transactions": {
@@ -217,14 +228,14 @@ def schemas() -> dict[str, dict[str, Any]]:
     }
     result = {
         "$schema": DRAFT,
-        "$id": "nekkora-rpa/result/1.0.0",
+        "$id": "nekkora-rpa/result/1.1.0",
         "title": "Resultado de transação (JsonDirectoryResultSink)",
         "type": "object",
         "additionalProperties": False,
         "required": ["schema", "version", "transaction_id", "status", "error_code", "detail", "output"],
         "properties": {
             "schema": {"const": "nekkora-rpa/result"},
-            "version": {"const": "1.0.0"},
+            "version": {"const": "1.1.0"},
             "transaction_id": {"type": "string", "pattern": TX},
             "status": enum(TransactionStatus),
             "error_code": nullable(enum(ErrorCode)),
@@ -234,7 +245,7 @@ def schemas() -> dict[str, dict[str, Any]]:
     }
     summary = {
         "$schema": DRAFT,
-        "$id": "nekkora-rpa/run-summary/1.0.0",
+        "$id": "nekkora-rpa/run-summary/1.1.0",
         "title": "Resumo da execução",
         "type": "object",
         "additionalProperties": False,
@@ -252,7 +263,7 @@ def schemas() -> dict[str, dict[str, Any]]:
         ],
         "properties": {
             "schema": {"const": "nekkora-rpa/run-summary"},
-            "version": {"const": "1.0.0"},
+            "version": {"const": "1.1.0"},
             "execution_id": tok(),
             "framework_version": tok(),
             "status": enum(RunStatus),
@@ -283,11 +294,11 @@ def schemas() -> dict[str, dict[str, Any]]:
         },
     }
     return {
-        "selectors-1.0.0.schema.json": selectors,
-        "events-1.0.0.schema.json": events,
-        "checkpoint-1.0.0.schema.json": checkpoint,
-        "result-1.0.0.schema.json": result,
-        "run-summary-1.0.0.schema.json": summary,
+        "selectors-1.1.0.schema.json": selectors,
+        "events-1.1.0.schema.json": events,
+        "checkpoint-1.1.0.schema.json": checkpoint,
+        "result-1.1.0.schema.json": result,
+        "run-summary-1.1.0.schema.json": summary,
     }
 
 

@@ -124,7 +124,7 @@ sintético fica em [`lab/`](lab) (`python -m lab.server --port 18080`, credencia
 
 [Arquitetura](docs/architecture.md) · [Contratos e APIs](docs/contracts.md) · [Decisões e achados](docs/decisions.md) ·
 [Segurança](docs/security.md) · [Guia de extensão](docs/extending.md) · [Plano de testes](docs/test-plan.md) ·
-[Homologação](docs/homologation.md) · [Auditoria F0](docs/f0-auditoria.md) ·
+[Homologação](docs/homologation.md) · [Auditoria F0](docs/f0-auditoria.md) · [Novidades 0.2.0](docs/framework-002.md) ·
 [Relatório final](reports/framework-001-final-report.md)
 
 ## Desenvolvimento

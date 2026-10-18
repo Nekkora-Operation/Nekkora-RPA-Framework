@@ -353,16 +353,16 @@ def test_zz_artefatos_reais_seguem_os_contratos():
         for f in out.rglob("*.json*"):
             if f.name == "events.jsonl":
                 for line in f.read_text(encoding="utf-8").splitlines():
-                    v(json.loads(line), "events-1.0.0.schema.json")
+                    v(json.loads(line), "events-1.1.0.schema.json")
                     counts["events"] += 1
             elif f.name == "checkpoint.json":
-                v(json.loads(f.read_text(encoding="utf-8")), "checkpoint-1.0.0.schema.json")
+                v(json.loads(f.read_text(encoding="utf-8")), "checkpoint-1.1.0.schema.json")
                 counts["checkpoint"] += 1
             elif f.name == "summary.json":
-                v(json.loads(f.read_text(encoding="utf-8")), "run-summary-1.0.0.schema.json")
+                v(json.loads(f.read_text(encoding="utf-8")), "run-summary-1.1.0.schema.json")
                 counts["summary"] += 1
             elif "resultados" in f.parts:
-                v(json.loads(f.read_text(encoding="utf-8")), "result-1.0.0.schema.json")
+                v(json.loads(f.read_text(encoding="utf-8")), "result-1.1.0.schema.json")
                 counts["result"] += 1
     assert all(counts.values()), counts
     dest = os.environ.get("NK_EVIDENCE_DIR")

@@ -1,0 +1,137 @@
+{
+ "schema": "nekkora-rpa/selectors",
+ "version": "1.1.0",
+ "system": "desafio",
+ "targets": {
+  "desafio.form.first_name": {
+   "preferred": {
+    "strategy": "label",
+    "text": "First Name"
+   },
+   "expected": {
+    "tag": "input",
+    "type": "text",
+    "label": "First Name"
+   }
+  },
+  "desafio.form.last_name": {
+   "preferred": {
+    "strategy": "label",
+    "text": "Last Name"
+   },
+   "expected": {
+    "tag": "input",
+    "type": "text",
+    "label": "Last Name"
+   }
+  },
+  "desafio.form.company_name": {
+   "preferred": {
+    "strategy": "label",
+    "text": "Company Name"
+   },
+   "expected": {
+    "tag": "input",
+    "type": "text",
+    "label": "Company Name"
+   }
+  },
+  "desafio.form.role_in_company": {
+   "preferred": {
+    "strategy": "label",
+    "text": "Role in Company"
+   },
+   "expected": {
+    "tag": "input",
+    "type": "text",
+    "label": "Role in Company"
+   }
+  },
+  "desafio.form.address": {
+   "preferred": {
+    "strategy": "label",
+    "text": "Address"
+   },
+   "expected": {
+    "tag": "input",
+    "type": "text",
+    "label": "Address"
+   }
+  },
+  "desafio.form.email": {
+   "preferred": {
+    "strategy": "label",
+    "text": "Email"
+   },
+   "expected": {
+    "tag": "input",
+    "type": "text",
+    "label": "Email"
+   }
+  },
+  "desafio.form.phone_number": {
+   "preferred": {
+    "strategy": "label",
+    "text": "Phone Number"
+   },
+   "expected": {
+    "tag": "input",
+    "type": "text",
+    "label": "Phone Number"
+   }
+  },
+  "desafio.form.enviar": {
+   "preferred": {
+    "strategy": "css",
+    "expression": "#form-desafio input[type=submit]"
+   },
+   "alternatives": [
+    {
+     "strategy": "role",
+     "role": "button",
+     "name": "Submit"
+    }
+   ],
+   "expected": {
+    "tag": "input",
+    "type": "submit",
+    "role": "button",
+    "name": "Submit"
+   }
+  },
+  "desafio.inicio.start": {
+   "preferred": {
+    "strategy": "role",
+    "role": "button",
+    "name": "Start"
+   },
+   "expected": {
+    "tag": "button",
+    "role": "button",
+    "name": "Start"
+   }
+  },
+  "desafio.inicio.baixar": {
+   "preferred": {
+    "strategy": "role",
+    "role": "link",
+    "name": "Download Excel cloud_download"
+   },
+   "expected": {
+    "tag": "a",
+    "role": "link",
+    "name": "Download Excel cloud_download"
+   }
+  },
+  "desafio.fim.resultado": {
+   "preferred": {
+    "strategy": "id",
+    "value": "resultado"
+   },
+   "expected": {
+    "tag": "p",
+    "role": "status"
+   }
+  }
+ }
+}

@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nekkora-rpa/selectors/1.1.0",
+  "title": "Registro de alvos por chave",
+  "$comment": "Além do esquema, o leitor recusa: chave fora de '<system>.', chave JSON duplicada, alternativos sem expected.name e candidatos repetidos.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "system",
+    "targets"
+  ],
+  "properties": {
+    "schema": {
+      "const": "nekkora-rpa/selectors"
+    },
+    "version": {
+      "const": "1.1.0"
+    },
+    "system": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_:-]{0,79}$"
+    },
+    "targets": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/target"
+      }
+    }
+  },
+  "$defs": {
+    "locator": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "strategy",
+            "expression"
+          ],
+          "properties": {
+            "strategy": {
+              "enum": [
+                "css",
+                "xpath"
+              ]
+            },
+            "expression": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "strategy",
+            "value"
+          ],
+          "properties": {
+            "strategy": {
+              "enum": [
+                "id",
+                "name",
+                "test_id"
+              ]
+            },
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "strategy",
+            "role",
+            "name"
+          ],
+          "properties": {
+            "strategy": {
+              "const": "role"
+            },
+            "role": {
+              "type": "string",
+              "pattern": "^[A-Za-z]{1,40}$"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "strategy",
+            "text"
+          ],
+          "properties": {
+            "strategy": {
+              "const": "label"
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        }
+      ]
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tag"
+      ],
+      "properties": {
+        "tag": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9-]{0,39}$"
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "dependentRequired": {
+        "name": [
+          "role"
+        ]
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "preferred",
+        "expected"
+      ],
+      "properties": {
+        "page": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$"
+        },
+        "preferred": {
+          "$ref": "#/$defs/locator"
+        },
+        "alternatives": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "$ref": "#/$defs/locator"
+          }
+        },
+        "expected": {
+          "$ref": "#/$defs/expected"
+        },
+        "variants": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "preferred"
+            ],
+            "properties": {
+              "preferred": {
+                "$ref": "#/$defs/locator"
+              },
+              "alternatives": {
+                "type": "array",
+                "maxItems": 5,
+                "items": {
+                  "$ref": "#/$defs/locator"
+                }
+              }
+            }
+          }
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "studioStepId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$"
+            }
+          }
+        }
+      }
+    }
+  }
+}

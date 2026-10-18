@@ -1,6 +1,8 @@
-# Versões travadas do ambiente de homologação LAB (pip install <wheel> -c constraints/lab.txt).
-# Playwright 1.63.0 usa o Chromium 1243 já baixado em ms-playwright; trocar a versão exige 'playwright install'.
+# Versões travadas do ambiente de homologação (pip install <wheel>[excel] -c constraints/lab.txt).
+# Playwright 1.63.0 usa o Chromium 1243; trocar a versão exige 'playwright install'.
+et_xmlfile==2.0.0
 greenlet==3.5.6
+openpyxl==3.1.5
 playwright==1.63.0
 pyee==13.0.1
 typing_extensions==4.16.0

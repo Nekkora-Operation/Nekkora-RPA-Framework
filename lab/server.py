@@ -36,6 +36,44 @@ CLIENTES = {
     "C-1003": {"nome": "Cometa Teste ME", "situacao": "ATIVO"},
     "C-1004": {"nome": "Duna Sintetica Eireli", "situacao": "INATIVO"},
 }
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+DESAFIO_COLUNAS = ["First Name", "Last Name ", "Company Name", "Role in Company", "Address", "Email", "Phone Number"]
+# 10 registros SINTÉTICOS (nomes e contatos inventados, domínio .test); telefone gravado como NÚMERO, como no desafio
+DESAFIO = [
+    {
+        "First Name": f"Pessoa{i:02d}",
+        "Last Name": f"Ficticia{i:02d}",
+        "Company Name": f"Empresa Teste {i}",
+        "Role in Company": ["Analyst", "Manager", "Engineer", "Director", "Clerk"][i % 5],
+        "Address": f"{i} Rua Inventada",
+        "Email": f"p{i:02d}@exemplo.test",
+        "Phone Number": f"1190000{i:04d}",
+    }
+    for i in range(1, 11)
+]
+_XLSX_CACHE: list[bytes] = []
+
+
+def desafio_xlsx() -> bytes:
+    if not _XLSX_CACHE:
+        import io
+
+        import openpyxl
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Sheet1"
+        ws.append(DESAFIO_COLUNAS)
+        for r in DESAFIO:
+            ws.append(
+                [r[c.strip()] if c.strip() != "Phone Number" else int(r["Phone Number"]) for c in DESAFIO_COLUNAS]
+            )
+        buf = io.BytesIO()
+        wb.save(buf)
+        _XLSX_CACHE.append(buf.getvalue())
+    return _XLSX_CACHE[0]
+
+
 PRODUTOS = {"P-10": "Caneta azul", "P-20": "Caderno 96 folhas", "P-30": "Grampeador"}
 
 
@@ -57,6 +95,8 @@ class LabState:
     hits: dict[str, int] = field(default_factory=dict)
     faults: dict[str, Fault] = field(default_factory=dict)
     external_hits: int = 0
+    desafio_inicios: int = 0
+    desafio_submissoes: list[dict[str, object]] = field(default_factory=list)
     lock: threading.Lock = field(default_factory=threading.Lock)
 
     def take_fault(self, target: str) -> Fault | None:
@@ -78,6 +118,8 @@ class LabState:
                 "logins": dict(self.logins),
                 "hits": dict(self.hits),
                 "external_hits": self.external_hits,
+                "desafio_inicios": self.desafio_inicios,
+                "desafio_submissoes": list(self.desafio_submissoes),
             }
 
 
@@ -152,6 +194,12 @@ class Handler(BaseHTTPRequestHandler):
             self.state.hits[path] = self.state.hits.get(path, 0) + 1
         if path == "/api/lab/oracle":
             return self._json(200, self.state.oracle())
+        if path == "/desafio/dados.xlsx":
+            return self._send(200, desafio_xlsx(), XLSX, {"Content-Disposition": 'attachment; filename="dados.xlsx"'})
+        if path == "/api/desafio/esperado":
+            return self._json(200, DESAFIO)
+        if path.startswith("/lab/downloads/"):
+            return self._download(path.rsplit("/", 1)[1])
         if path == "/redir/mesma-origem":
             return self._send(302, b"", "text/plain", {"Location": "/adversarial/destino.html"})
         if path == "/redir/externo":
@@ -191,6 +239,24 @@ class Handler(BaseHTTPRequestHandler):
         return self._send(200, file.read_bytes(), ctype)
 
     # ------------------------------------------------------------------ POST
+    def _download(self, name: str) -> None:
+        if name == "grande.xlsx":
+            return self._send(200, b"PK\x03\x04" + b"\0" * 2_000_000, XLSX, {"Content-Disposition": "attachment"})
+        if name == "texto.xlsx":
+            return self._send(200, b"isto nao e uma planilha", XLSX, {"Content-Disposition": "attachment"})
+        if name == "externo.xlsx":
+            return self._send(302, b"", "text/plain", {"Location": self.server.external_url + "/dados.xlsx"})
+        if name == "falha.xlsx":
+            self.send_response(200)
+            self.send_header("Content-Type", XLSX)
+            self.send_header("Content-Disposition", "attachment")
+            self.send_header("Content-Length", "50000")
+            self.end_headers()
+            self.wfile.write(b"PK\x03\x04" + b"\0" * 100)
+            self.wfile.flush()
+            return self._drop()
+        return self._send(404, b"nao encontrado", "text/plain")
+
     def do_POST(self) -> None:
         path = urlsplit(self.path).path
         body = self._body()
@@ -226,6 +292,14 @@ class Handler(BaseHTTPRequestHandler):
             sid = secrets.token_hex(16)
             st.sessions[sid] = system
             return self._json(200, {"ok": True}, {"Set-Cookie": f"lab_sid={sid}; Path=/; HttpOnly; SameSite=Lax"})
+        if path == "/api/desafio/inicio":
+            with st.lock:
+                st.desafio_inicios += 1
+            return self._json(200, {"ok": True})
+        if path == "/api/desafio/submissao":
+            with st.lock:
+                st.desafio_submissoes.append({"rodada": body.get("rodada"), "valores": body.get("valores")})
+            return self._json(200, {"ok": True})
         if path == "/api/lab/eco":
             with st.lock:
                 st.hits["POST /api/lab/eco"] = st.hits.get("POST /api/lab/eco", 0) + 1
@@ -329,6 +403,8 @@ class Lab:
         self.state.hits.clear()
         self.state.faults.clear()
         self.state.external_hits = 0
+        self.state.desafio_inicios = 0
+        self.state.desafio_submissoes.clear()
 
     def fault(self, target: str, mode: str, count: int = 1, ms: int = 0) -> None:
         with self.state.lock:

@@ -13,9 +13,13 @@ rastreabilidade. Cada chamada:
 
 from __future__ import annotations
 
+import hashlib
+import os
+import re
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal, TypeVar
 from urllib.parse import urljoin
 
@@ -30,12 +34,16 @@ from ..core.context import ExecutionContext
 from ..errors.codes import ErrorCategory, ErrorCode, OutcomeUnknownReason
 from ..errors.exceptions import (
     ActionTimeout,
+    DownloadInvalid,
     InvalidArgument,
+    InvalidConfiguration,
     NavigationFailed,
     NekkoraRpaError,
     OutcomeUnknown,
     PageClosed,
     SecurityPolicyBlocked,
+    TargetAmbiguous,
+    TargetNotFound,
     TransientTechnicalFailure,
     external,
 )
@@ -50,6 +58,22 @@ from ..selectors.schema import Target
 T = TypeVar("T")
 Postcondition = Callable[[], bool]
 WaitUntil = Literal["load", "domcontentloaded", "networkidle", "commit"]
+
+
+@dataclass(frozen=True)
+class DownloadedFile:
+    path: Path
+    size_bytes: int
+    sha256: str
+
+
+@dataclass(frozen=True, repr=False)
+class ElementMark:
+    key: str
+    handle: ElementHandle
+
+    def __repr__(self) -> str:
+        return f"ElementMark({self.key})"
 
 
 @dataclass
@@ -386,20 +410,52 @@ class Actions:
         deadline = self.ctx.action_deadline(self._timeout(timeout_ms, self.ctx.config.timeouts.action_ms))
 
         def body(_: int) -> None:
+            # esperar é seguro de repetir: nó substituído durante a espera → resolve de novo, dentro do mesmo prazo
+            while True:
+                page = self.page
+                self._require_origin(page, key, step_id)
+                handle = self._resolve(page, target, deadline, step_id)
+                assert handle is not None
+                try:
+                    handle.wait_for_element_state("visible", timeout=_remaining(deadline, key, step_id))
+                    return
+                except PlaywrightTimeout:
+                    raise ActionTimeout(
+                        key=key, step_id=step_id, detail="not_visible", cause_type="TimeoutError"
+                    ) from None
+                except PlaywrightError as exc:
+                    err = interactions.not_performed(page, handle, exc, key, step_id)
+                    if err.code is not ErrorCode.TARGET_DETACHED or deadline.expired:
+                        raise err from None
+                finally:
+                    _dispose(handle)
+
+        self._run("wait_visible", key, step_id, deadline, body, retry=NO_RETRY)
+
+    def mark(self, key: str, *, step_id: str | None = None) -> ElementMark:
+        """Marca o nó ATUAL do alvo (identidade verificada) para depois saber se ele foi substituído — prova objetiva
+        de que a página avançou (ex.: formulário re-renderizado depois de um envio). A marca é opaca e não é
+        registrada."""
+        self._check_step(step_id)
+        target = self.registry.get(key)
+        deadline = self.ctx.action_deadline(self.ctx.config.timeouts.action_ms)
+
+        def body(_: int) -> ElementMark:
             page = self.page
             self._require_origin(page, key, step_id)
             handle = self._resolve(page, target, deadline, step_id)
             assert handle is not None
-            try:
-                handle.wait_for_element_state("visible", timeout=_remaining(deadline, key, step_id))
-            except PlaywrightTimeout:
-                raise ActionTimeout(key=key, step_id=step_id, detail="not_visible", cause_type="TimeoutError") from None
-            except PlaywrightError as exc:
-                raise interactions.not_performed(page, handle, exc, key, step_id) from None
-            finally:
-                _dispose(handle)
+            return ElementMark(key, handle)
 
-        self._run("wait_visible", key, step_id, deadline, body, retry=NO_RETRY)
+        return self._run("mark", key, step_id, deadline, body, retry=NO_RETRY)
+
+    def replaced(self, mark: ElementMark) -> bool:
+        """``True`` quando o nó marcado saiu do documento (foi substituído ou removido). Sem espera, sem eventos;
+        próprio para ``postcondition``."""
+        try:
+            return not bool(mark.handle.evaluate("e => e.isConnected"))
+        except PlaywrightError:
+            return True
 
     def wait_hidden(self, key: str, *, timeout_ms: int | None = None, step_id: str | None = None) -> None:
         """Espera não haver nenhum elemento VISÍVEL para nenhum candidato do alvo (ausência não exige identidade)."""
@@ -464,6 +520,49 @@ class Actions:
                 _dispose(handle)
 
         return self._run("is_visible", key, step_id, deadline, body, retry=NO_RETRY)
+
+    def read_text_matching(self, pattern: str, *, timeout_ms: int | None = None, step_id: str | None = None) -> str:
+        """Lê o texto do ÚNICO elemento cujo texto casa ``pattern`` — para observar uma mensagem que não tem rótulo nem
+        identidade exportável (ex.: resultado de um processo). ``pattern`` é um CONTRATO DE CONTEÚDO declarado por quem
+        configura o processo, não um seletor: precisa ser ancorado (``^...$``) e ter até 300 caracteres. Nenhum
+        elemento → espera até o prazo (``TARGET_NOT_FOUND``); mais de um → ``TARGET_AMBIGUOUS``. O texto lido é do
+        processo e nunca é registrado."""
+        self._check_step(step_id)
+        if (
+            not isinstance(pattern, str)
+            or not (pattern.startswith("^") and pattern.endswith("$"))
+            or len(pattern) > 300
+        ):
+            raise InvalidArgument(step_id=step_id, detail="pattern")
+        try:
+            regex = re.compile(pattern)
+        except re.error:
+            raise InvalidArgument(step_id=step_id, detail="pattern") from None
+        deadline = self.ctx.action_deadline(self._timeout(timeout_ms, self.ctx.config.timeouts.action_ms))
+
+        def body(_: int) -> str:
+            interval = 0.05
+            while True:
+                page = self.page
+                self._require_origin(page, None, step_id)
+                try:
+                    loc = page.get_by_text(regex)
+                    n = loc.count()
+                    if n > 1:
+                        raise TargetAmbiguous(step_id=step_id, detail="text_pattern")
+                    if n == 1:
+                        text = loc.text_content(timeout=_remaining(deadline, None, step_id)) or ""
+                        text = " ".join(text.split())
+                        if regex.match(text):
+                            return text
+                except PlaywrightError:
+                    pass  # página em transição: consulta de novo
+                if deadline.remaining_ms() <= 0:
+                    raise TargetNotFound(step_id=step_id, detail="text_pattern")
+                self.ctx.clock.sleep(min(interval, deadline.remaining_ms() / 1000.0), self.ctx.cancel)
+                interval = min(interval * 2, 0.25)
+
+        return self._run("read_text_matching", None, step_id, deadline, body, retry=NO_RETRY)
 
     def read_text(self, key: str, *, timeout_ms: int | None = None, step_id: str | None = None) -> str:
         """Lê o texto (ou o valor, em campos) do alvo verificado. O retorno é do processo: nunca é registrado."""
@@ -532,6 +631,85 @@ class Actions:
                 raise NavigationFailed(step_id=step_id, detail="http_5xx" if response.status >= 500 else "http_4xx")
 
         self._run("navigate", None, step_id, deadline, body, retry=self.retry if idempotent else NO_RETRY)
+
+    def download(
+        self,
+        key: str,
+        *,
+        dest_dir: Path,
+        file_name: str,
+        allowed_extensions: tuple[str, ...] = (".xlsx", ".csv"),
+        max_bytes: int = 10 * 1024 * 1024,
+        magic: bytes | None = None,
+        timeout_ms: int | None = None,
+        step_id: str | None = None,
+    ) -> DownloadedFile:
+        """Clica no alvo ``key`` e recebe o download que ele dispara. Valida a origem do download, a extensão do nome
+        de DESTINO (escolhido por quem chama, nunca o sugerido pelo site), o tamanho, a assinatura (``magic``) e grava
+        de forma atômica em ``dest_dir`` sem sobrescrever. Devolve caminho, tamanho e SHA-256 (nunca registrados com
+        o conteúdo)."""
+        self._check_step(step_id)
+        self.registry.get(key)
+        if not self.session.browser_config.accept_downloads:
+            raise InvalidConfiguration(key=key, step_id=step_id, detail="downloads_disabled")
+        name = Path(file_name)
+        if (
+            not is_token(file_name)
+            or name.name != file_name
+            or name.suffix.lower() not in {e.lower() for e in allowed_extensions}
+        ):
+            raise InvalidArgument(key=key, step_id=step_id, detail="file_name")
+        dest = Path(dest_dir)
+        if not dest.is_dir():
+            raise InvalidArgument(key=key, step_id=step_id, detail="dest_dir")
+        final = dest / file_name
+        if final.exists():
+            raise DownloadInvalid(key=key, step_id=step_id, detail="exists")
+        ms = self._timeout(timeout_ms, self.ctx.config.timeouts.navigation_ms)
+        deadline = self.ctx.action_deadline(ms)
+
+        def body(_: int) -> DownloadedFile:
+            page = self.page
+            self._require_origin(page, key, step_id)
+            try:
+                with page.expect_download(timeout=_remaining(deadline, key, step_id)) as info:
+                    self.click(key, idempotent=True, step_id=step_id, timeout_ms=max(1, deadline.remaining_ms()))
+                download = info.value
+            except PlaywrightTimeout:
+                raise ActionTimeout(key=key, step_id=step_id, detail="no_download", cause_type="TimeoutError") from None
+            except PlaywrightError as exc:
+                raise external(ErrorCode.DOWNLOAD_INVALID, exc, key=key, step_id=step_id) from None
+            tmp = dest / f".{file_name}.part"
+            try:
+                if not self.ctx.config.origins.is_allowed(download.url):
+                    download.cancel()
+                    raise SecurityPolicyBlocked(key=key, step_id=step_id, detail="DOWNLOAD_ORIGIN")
+                if download.failure() is not None:
+                    raise DownloadInvalid(key=key, step_id=step_id, detail="failed")
+                download.save_as(tmp)
+                size = tmp.stat().st_size
+                if size == 0 or size > max_bytes:
+                    raise DownloadInvalid(key=key, step_id=step_id, detail="size")
+                with tmp.open("rb") as fh:
+                    head = fh.read(max(len(magic or b""), 1))
+                if magic is not None and not head.startswith(magic):
+                    raise DownloadInvalid(key=key, step_id=step_id, detail="signature")
+                digest = hashlib.sha256(tmp.read_bytes()).hexdigest()
+                if final.exists():
+                    raise DownloadInvalid(key=key, step_id=step_id, detail="exists")
+                os.replace(tmp, final)
+            except PlaywrightError as exc:
+                raise external(ErrorCode.DOWNLOAD_INVALID, exc, key=key, step_id=step_id) from None
+            finally:
+                if tmp.exists():
+                    tmp.unlink()
+                try:
+                    download.delete()
+                except PlaywrightError:
+                    pass
+            return DownloadedFile(final, size, digest)
+
+        return self._run("download", key, step_id, deadline, body, retry=NO_RETRY)
 
     @contextmanager
     def expect_new_page(self, *, timeout_ms: int | None = None, step_id: str | None = None) -> Iterator[NewPage]:

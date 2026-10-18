@@ -23,6 +23,21 @@ from ...resilience.timing import CancelToken, Clock, Deadline
 from ...selectors.schema import Expected, Strategy, Target
 from ...selectors.schema import Locator as Ref
 
+# Rótulo visível: associado (labels), aria-labelledby, ou o ÚNICO <label> irmão de um ÚNICO controle no contêiner.
+_LABEL_JS = """e => {
+  const norm = t => (t || '').replace(/\\s+/g, ' ').trim();
+  if (e.labels && e.labels.length === 1) return norm(e.labels[0].textContent);
+  if (e.labels && e.labels.length > 1) return null;
+  const ids = (e.getAttribute('aria-labelledby') || '').split(/\\s+/).filter(Boolean);
+  if (ids.length) return norm(ids.map(i => (document.getElementById(i) || {}).textContent || '').join(' '));
+  const p = e.parentElement;
+  if (!p) return null;
+  const labels = [...p.children].filter(c => c.tagName === 'LABEL');
+  const controls = [...p.children].filter(c => ['INPUT', 'TEXTAREA', 'SELECT'].includes(c.tagName));
+  if (labels.length === 1 && controls.length === 1 && controls[0] === e) return norm(labels[0].textContent);
+  return null;
+}"""
+
 _IDENTITY_JS = """e => ({
   tag: e.tagName.toLowerCase(),
   type: (['input', 'button', 'select', 'textarea'].includes(e.tagName.toLowerCase()) ? (e.type || '')
@@ -54,7 +69,22 @@ def build_locator(page: Page, ref: Ref) -> Locator:
         return page.locator(f"css=[name={_css_str(ref.value or '')}]")
     if ref.strategy is Strategy.TEST_ID:
         return page.locator(f"css=[data-testid={_css_str(ref.value or '')}]")
+    if ref.strategy is Strategy.LABEL:
+        text = ref.text or ""
+        sibling = (
+            "xpath=//*[count(label)=1 and label[normalize-space(.)=" + _xpath_str(text) + "]"
+            " and count(input|textarea|select)=1]/*[self::input or self::textarea or self::select]"
+        )
+        return page.get_by_label(text, exact=True).or_(page.locator(sibling))
     return page.get_by_role(ref.role, name=ref.name, exact=True)  # type: ignore[arg-type]
+
+
+def _xpath_str(v: str) -> str:
+    if "'" not in v:
+        return "'" + v + "'"
+    if '"' not in v:
+        return '"' + v + '"'
+    return "concat(" + ', "\'", '.join("'" + part + "'" for part in v.split("'")) + ")"
 
 
 def _count(loc: Locator) -> int:
@@ -73,6 +103,8 @@ def identity_mismatch(page: Page, handle: ElementHandle, expected: Expected) -> 
         return "type"
     if not info["documentScope"]:
         return "scope"
+    if expected.label is not None and handle.evaluate(_LABEL_JS) != expected.label:
+        return "label"
     if expected.role is not None:
         # papel e nome pelo motor ARIA do Playwright, conferidos contra ESTE nó (não contra o que o seletor casar)
         by_role = page.get_by_role(expected.role, include_hidden=True)  # type: ignore[arg-type]

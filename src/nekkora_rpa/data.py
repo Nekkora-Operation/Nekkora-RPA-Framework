@@ -19,7 +19,7 @@ from .errors.exceptions import InputProviderFailed
 from .observability.safety import is_token, require_token
 
 RESULT_SCHEMA = "nekkora-rpa/result"
-RESULT_VERSION = "1.0.0"
+RESULT_VERSION = "1.1.0"
 
 
 class JsonLinesInputProvider:

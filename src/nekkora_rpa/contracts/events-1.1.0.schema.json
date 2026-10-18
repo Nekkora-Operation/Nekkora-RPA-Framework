@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nekkora-rpa/events/1.1.0",
+  "title": "Evento de execução (uma linha JSON)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "timestamp_utc",
+    "execution_id",
+    "event_code",
+    "framework_version"
+  ],
+  "properties": {
+    "schema": {
+      "const": "nekkora-rpa/events"
+    },
+    "version": {
+      "const": "1.1.0"
+    },
+    "timestamp_utc": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "execution_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$"
+    },
+    "event_code": {
+      "enum": [
+        "ENGINE_STARTED",
+        "ENGINE_COMPLETED",
+        "PHASE_STARTED",
+        "PHASE_COMPLETED",
+        "PHASE_FAILED",
+        "TRANSACTION_STARTED",
+        "TRANSACTION_COMPLETED",
+        "TRANSACTION_FAILED",
+        "TRANSACTION_SKIPPED",
+        "TRANSACTION_RETRY_SCHEDULED",
+        "TRANSACTION_RETRY_DENIED",
+        "RECONCILIATION_STARTED",
+        "RECONCILIATION_COMPLETED",
+        "TARGET_RESOLVED",
+        "TARGET_REJECTED",
+        "ACTION_STARTED",
+        "ACTION_COMPLETED",
+        "ACTION_FAILED",
+        "RETRY_SCHEDULED",
+        "RETRY_DENIED",
+        "OUTCOME_UNKNOWN",
+        "SINK_COMMITTED",
+        "SINK_UNCERTAIN",
+        "SINK_FAILED",
+        "CHECKPOINT_SAVED",
+        "CHECKPOINT_LOADED",
+        "SECURITY_BLOCKED",
+        "CLEANUP_COMPLETED",
+        "CLEANUP_FAILED",
+        "CANCELLED"
+      ]
+    },
+    "framework_version": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$"
+    },
+    "phase": {
+      "enum": [
+        "INIT",
+        "TRANSFER_DATA_IN",
+        "PROCESS",
+        "TRANSFER_DATA_OUT",
+        "END"
+      ]
+    },
+    "transaction_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$"
+    },
+    "step_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$"
+    },
+    "key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "action": {
+      "enum": [
+        "click",
+        "double_click",
+        "fill",
+        "wait_visible",
+        "wait_hidden",
+        "exists",
+        "is_visible",
+        "read_text",
+        "navigate",
+        "download",
+        "mark",
+        "read_text_matching"
+      ]
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "elapsed_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "outcome": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$"
+    },
+    "error_code": {
+      "enum": [
+        "TARGET_NOT_FOUND",
+        "TARGET_AMBIGUOUS",
+        "TARGET_IDENTITY_MISMATCH",
+        "TARGET_NOT_READY",
+        "TARGET_DETACHED",
+        "ACTION_TIMEOUT",
+        "NAVIGATION_FAILED",
+        "PAGE_CLOSED",
+        "TRANSIENT_TECHNICAL_FAILURE",
+        "UNEXPECTED_ERROR",
+        "BUSINESS_RULE_REJECTED",
+        "OUTCOME_UNKNOWN",
+        "SECURITY_POLICY_BLOCKED",
+        "INVALID_CONFIGURATION",
+        "INVALID_ARGUMENT",
+        "SECRET_UNAVAILABLE",
+        "CHECKPOINT_CORRUPTED",
+        "CHECKPOINT_WRITE_FAILED",
+        "INPUT_PROVIDER_FAILED",
+        "TRANSACTION_DEADLINE_EXCEEDED",
+        "TABULAR_INVALID",
+        "DOWNLOAD_INVALID",
+        "CANCELLED"
+      ]
+    },
+    "detail": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$"
+    },
+    "cause_type": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$"
+    },
+    "strategy_index": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5
+    },
+    "delay_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "selector_registry_revision": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

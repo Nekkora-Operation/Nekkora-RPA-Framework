@@ -146,6 +146,10 @@ class TransactionDeadlineExceeded(NekkoraRpaError):
     code = ErrorCode.TRANSACTION_DEADLINE_EXCEEDED
 
 
+class DownloadInvalid(NekkoraRpaError):
+    code = ErrorCode.DOWNLOAD_INVALID
+
+
 class Cancelled(NekkoraRpaError):
     code = ErrorCode.CANCELLED
 
@@ -174,4 +178,5 @@ _BY_CODE: dict[ErrorCode, type[NekkoraRpaError]] = {
     ErrorCode.INVALID_CONFIGURATION: InvalidConfiguration,
     ErrorCode.INVALID_ARGUMENT: InvalidArgument,
     ErrorCode.CANCELLED: Cancelled,
+    ErrorCode.DOWNLOAD_INVALID: DownloadInvalid,
 }

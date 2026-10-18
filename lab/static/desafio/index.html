@@ -1,0 +1,62 @@
+<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Desafio de formulários (laboratório)</title>
+<link rel="stylesheet" href="/lab.css"><header>Desafio de formulários — RÉPLICA SINTÉTICA de laboratório</header>
+<main>
+<h1 id="titulo-desafio">Desafio de formulários</h1>
+<p id="instrucoes">Transfira cada linha da planilha para o formulário. Os campos mudam de posição a cada envio, por 10 rodadas.
+O cronômetro começa no Start.</p>
+<a id="baixar" href="/desafio/dados.xlsx">Download Excel <i class="icone">cloud_download</i></a>
+<!-- como no site: o ícone é ligadura de TEXTO, parte do nome acessível do link -->
+<div><button id="iniciar" type="button">Start</button></div>
+<form id="form-desafio" onsubmit="return false"><div id="campos"></div>
+  <input type="submit" value="Submit"></form>
+<p id="rodada" role="status"></p>
+<p id="parabens" class="oculto">Congratulations!</p>
+<p id="resultado" class="oculto" role="status"></p>
+</main>
+<script>
+const LABELS = ['First Name', 'Last Name', 'Company Name', 'Role in Company', 'Address', 'Email', 'Phone Number'];
+const p = new URLSearchParams(location.search);
+const variante = p.get('v') || 'base';
+let rodada = 0, inicio = null, corretos = 0, iniciado = false, esperado = null;
+const rid = () => Math.random().toString(36).slice(2, 7);
+function embaralhar(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function montar() {
+  const c = document.getElementById('campos'); c.innerHTML = '';
+  let labels = embaralhar(LABELS.slice());
+  if (variante === 'sosia') labels = labels.map(l => l === 'Address' ? 'Email' : l);
+  if (variante === 'trocado' && rodada >= 3) labels = labels.map(l => l === 'Email' ? 'E-mail' : l);
+  for (const l of labels) {
+    const d = document.createElement('div'); d.className = 'campo';
+    const lab = document.createElement('label'); lab.textContent = l;
+    const inp = document.createElement('input'); inp.type = 'text'; inp.id = rid(); inp.name = inp.id;
+    inp.dataset.campo = l; d.append(lab, inp); c.appendChild(d);
+  }
+  document.getElementById('rodada').textContent = iniciado ? ('Rodada ' + (rodada + 1)) : '';
+}
+document.getElementById('iniciar').addEventListener('click', async () => {
+  iniciado = true; rodada = 0; corretos = 0; inicio = performance.now();
+  esperado = await (await fetch('/api/desafio/esperado')).json();
+  await fetch('/api/desafio/inicio', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+  montar();
+});
+document.getElementById('form-desafio').addEventListener('submit', async () => {
+  const valores = {};
+  for (const i of document.querySelectorAll('#campos input')) valores[i.dataset.campo] = i.value;
+  await fetch('/api/desafio/submissao', {method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({rodada: iniciado ? rodada + 1 : 0, valores})});
+  if (!iniciado) { montar(); return; }
+  const linha = esperado[rodada] || {};
+  for (const l of LABELS) if ((valores[l] || '') === (linha[l] || '')) corretos++;
+  rodada++;
+  if (rodada >= 10) {
+    const ms = Math.round(performance.now() - inicio);
+    document.getElementById('form-desafio').remove();  // como o *ngIf do site: o formulário sai do DOM
+    const r = document.getElementById('resultado');
+    document.getElementById('parabens').classList.remove('oculto');  // como no site: parabéns e placar em elementos separados
+    r.textContent = 'Your success rate is ' + Math.round(corretos * 100 / 70) + '% ( ' + corretos +
+      ' out of 70 fields) in ' + ms + ' milliseconds';
+    r.classList.remove('oculto'); iniciado = false;
+  } else montar();
+});
+montar();
+</script></html>
