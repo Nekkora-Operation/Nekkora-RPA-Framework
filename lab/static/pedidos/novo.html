@@ -1,0 +1,56 @@
+<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Pedidos — Novo</title>
+<link rel="stylesheet" href="/lab.css"><header>Pedidos (fictício) <a href="/pedidos/lista.html" id="ir-lista">Pedidos por referência</a></header>
+<main><h1 id="titulo-novo">Novo pedido</h1>
+<div id="form-pedido">
+  <label for="referencia">Referência do cliente</label><input id="referencia" autocomplete="off">
+  <label for="produto">Código do produto</label><input id="produto" autocomplete="off">
+  <label for="quantidade">Quantidade</label><input id="quantidade" inputmode="numeric" autocomplete="off">
+  <label for="observacao">Observação</label><textarea id="observacao" rows="2"></textarea>
+  <div><button id="revisar" type="button">Revisar</button></div>
+  <p id="erro-validacao" class="erro oculto" role="alert">Preencha referência, produto e quantidade</p>
+</div>
+<section id="revisao" class="oculto" aria-label="Revisão do pedido">
+  <h2>Revisão</h2><p>Confira e confirme com <strong>duplo clique</strong>.</p>
+  <button id="confirmar" type="button">Confirmar pedido</button>
+  <p id="dica" class="oculto">Clique duas vezes para confirmar</p>
+</section>
+<p id="enviando" class="oculto">Registrando…</p>
+<p id="protocolo" class="ok oculto" role="status"></p>
+<p id="erro-negocio" class="erro oculto" role="alert"></p>
+<p id="erro-servico" class="erro oculto" role="alert">Serviço indisponível — pedido não registrado</p>
+<p id="erro-comunicacao" class="erro oculto" role="alert">Falha de comunicação — situação do pedido desconhecida</p>
+<div><button id="novo" type="button" class="oculto">Novo pedido</button></div>
+</main>
+<script>
+window.__lab = {simples: 0, duplos: 0};
+const $ = id => document.getElementById(id);
+const fins = ['protocolo', 'erro-negocio', 'erro-servico', 'erro-comunicacao'];
+$('revisar').addEventListener('click', () => {
+  const ok = $('referencia').value.trim() && $('produto').value.trim() && $('quantidade').value.trim();
+  $('erro-validacao').classList.toggle('oculto', !!ok);
+  if (ok) { $('revisao').classList.remove('oculto'); fins.forEach(i => $(i).classList.add('oculto')); }
+});
+$('confirmar').addEventListener('click', () => { window.__lab.simples++; $('dica').classList.remove('oculto'); });
+$('confirmar').addEventListener('dblclick', async () => {
+  window.__lab.duplos++;
+  $('revisao').classList.add('oculto');
+  $('enviando').classList.remove('oculto');
+  let fim = 'erro-comunicacao';
+  try {
+    const r = await fetch('/api/pedidos', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ref: $('referencia').value.trim(), produto: $('produto').value.trim(),
+                            quantidade: Number($('quantidade').value), observacao: $('observacao').value})});
+    const d = await r.json();
+    if (r.status === 201) { fim = 'protocolo'; $('protocolo').textContent = d.protocolo; }
+    else if (r.status === 422) { fim = 'erro-negocio'; $('erro-negocio').textContent = d.erro; }
+    else if (r.status === 503) fim = 'erro-servico';
+  } catch (e) { fim = 'erro-comunicacao'; }
+  $('enviando').classList.add('oculto');
+  $(fim).classList.remove('oculto');
+  $('novo').classList.remove('oculto');
+});
+$('novo').addEventListener('click', () => {
+  ['referencia', 'produto', 'quantidade', 'observacao'].forEach(i => $(i).value = '');
+  fins.concat(['novo', 'revisao', 'dica', 'erro-validacao']).forEach(i => $(i).classList.add('oculto'));
+});
+</script></html>

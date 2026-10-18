@@ -1,0 +1,36 @@
+<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Clientes — Consulta</title>
+<link rel="stylesheet" href="/lab.css"><header>Clientes (fictício) <span id="sessao" role="status">Sessão ativa</span></header>
+<main><h1 id="titulo-consulta">Consulta de clientes</h1>
+<form id="form-consulta" onsubmit="return false">
+  <label for="codigo">Código do cliente</label><input id="codigo" name="codigo" autocomplete="off">
+  <div><button type="submit" data-testid="consultar">Consultar</button></div>
+</form>
+<p id="consultando" class="oculto">Consultando…</p>
+<section id="resultado" class="oculto" aria-label="Resultado da consulta">
+  <h2>Resultado</h2>
+  <dl><dt>Nome</dt><dd id="res-nome"></dd><dt>Situação</dt><dd id="res-situacao"></dd></dl>
+</section>
+<p id="nao-encontrado" class="erro oculto" role="alert">Cliente não encontrado</p>
+<p id="erro-servico" class="erro oculto" role="alert">Serviço indisponível, tente novamente</p>
+</main>
+<script>
+const ids = ['resultado', 'nao-encontrado', 'erro-servico'];
+document.getElementById('form-consulta').addEventListener('submit', async () => {
+  ids.forEach(i => document.getElementById(i).classList.add('oculto'));
+  document.getElementById('consultando').classList.remove('oculto');
+  let alvo = 'erro-servico';
+  try {
+    const r = await fetch('/api/clientes/consulta?codigo=' + encodeURIComponent(document.getElementById('codigo').value));
+    if (r.ok) {
+      const d = await r.json();
+      if (d.encontrado) {
+        alvo = 'resultado';
+        document.getElementById('res-nome').textContent = d.nome;
+        document.getElementById('res-situacao').textContent = d.situacao;
+      } else alvo = 'nao-encontrado';
+    }
+  } catch (e) { alvo = 'erro-servico'; }
+  document.getElementById('consultando').classList.add('oculto');
+  document.getElementById(alvo).classList.remove('oculto');
+});
+</script></html>
