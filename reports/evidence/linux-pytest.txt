@@ -1,6 +1,7 @@
+# Linux · contêiner mcr.microsoft.com/playwright/python:v1.63.0-noble · Chromium headless · commit dbf3122 (git archive)
 debconf: delaying package configuration, since apt-utils is not installed
 Python 3.12.3
 ........................................................................ [ 36%]
 ........................................................................ [ 73%]
 ....................................................                     [100%]
-196 passed in 94.68s (0:01:34)
+196 passed in 89.62s (0:01:29)

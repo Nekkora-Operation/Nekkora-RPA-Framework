@@ -36,14 +36,14 @@
 
 | Ataque | Onde é provado |
 |---|---|
-| credencial em `Secret` e em `fill` | `test_fill_com_segredo`, `test_privacidade`, e2e (`SENTINELA-P1/P2`, senha errada) |
-| CPF fictício em entrada, referência do item, DOM e exceção do processo | `test_privacidade`, `test_engine` (`SENTINELA-CPF-123.456.789-09`) |
-| seletor contendo dado | `test_privacidade` (`SENTINELA-SELETOR` nas expressões, inclusive com erro de ambiguidade/ausência) |
-| texto de DOM lido pelo processo | `test_privacidade` (lido e devolvido ao processo; ausente dos artefatos) |
-| URL com query | `test_privacidade` (`?cpf=…&q=SENTINELA-QUERY`) |
-| mensagem e traceback de exceção externa | `test_excecao_externa_nao_e_encadeada…`, `test_contexto_suprimido…`, `test_privacidade` (tracebacks formatados) |
+| credencial em `Secret` e em `fill` | `test_fill_com_segredo`, `test_privacidade.py`, e2e (`SENTINELA-P1/P2`, senha errada) |
+| CPF fictício em entrada, referência do item, DOM e exceção do processo | `test_privacidade.py`, `test_engine.py` (`SENTINELA-CPF-123.456.789-09`) |
+| seletor contendo dado | `test_privacidade.py` (`SENTINELA-SELETOR` nas expressões, inclusive com erro de ambiguidade/ausência) |
+| texto de DOM lido pelo processo | `test_privacidade.py` (lido e devolvido ao processo; ausente dos artefatos) |
+| URL com query | `test_privacidade.py` (`?cpf=…&q=SENTINELA-QUERY`) |
+| mensagem e traceback de exceção externa | `test_excecao_externa_nao_e_encadeada…`, `test_contexto_suprimido…`, `test_privacidade.py` (tracebacks formatados) |
 | configuração com valor | `test_erro_de_configuracao_nao_ecoa_valor`, `test_json_invalido_e_erro_sem_conteudo` |
-| capturas de tela | `test_privacidade` (nenhum arquivo de imagem) |
+| capturas de tela | `test_privacidade.py` (nenhum arquivo de imagem) |
 | todos os artefatos de duas execuções reais | e2e `test_zz_nenhum_valor_sensivel_em_artefatos_saida_ou_logs` (stdout, stderr, eventos, checkpoint, resumo) |
 
 ## Integridade da execução
