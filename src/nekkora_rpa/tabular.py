@@ -21,7 +21,7 @@ import csv
 import hashlib
 import io
 import zipfile
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime, time
 from pathlib import Path
@@ -327,9 +327,35 @@ class TabularInputProvider:
         return TransactionItem(f"{self.data.source_sha256}:{row.number}", payload)
 
 
+class DeferredTabularInputProvider:
+    """Lê o arquivo só no primeiro ``next_item`` (ex.: planilha baixada pelo próprio processo no INIT). ``source`` é
+    chamado nesse momento e devolve o caminho; até lá, nada é lido."""
+
+    def __init__(
+        self, source: Callable[[], Path | str | None], schema: TabularSchema, limits: Limits | None = None
+    ) -> None:
+        self._source = source
+        self._schema = schema
+        self._limits = limits
+        self._inner: TabularInputProvider | None = None
+
+    @property
+    def data(self) -> TabularData | None:
+        return self._inner.data if self._inner is not None else None
+
+    def next_item(self) -> TransactionItem | None:
+        if self._inner is None:
+            path = self._source()
+            if path is None:
+                raise TabularInvalid("TABULAR_SOURCE_MISSING")
+            self._inner = TabularInputProvider.from_file(path, self._schema, self._limits)
+        return self._inner.next_item()
+
+
 __all__ = [
     "PROBLEMS_KEY",
     "Column",
+    "DeferredTabularInputProvider",
     "Limits",
     "TabularData",
     "TabularInputProvider",

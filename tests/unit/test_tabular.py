@@ -202,3 +202,20 @@ def test_esquema_invalido():
 
     with pytest.raises(InvalidConfiguration):
         TabularSchema((Column("A"), Column("A ")))
+
+
+def test_provider_adiado_le_so_no_primeiro_item(tmp_path: Path):
+    from nekkora_rpa.tabular import DeferredTabularInputProvider
+
+    alvo = tmp_path / "baixado.xlsx"
+    caminho: list[Path] = []
+    prov = DeferredTabularInputProvider(lambda: caminho[0] if caminho else None, SCHEMA)
+    assert prov.data is None
+    xlsx(alvo, [["Nome", "Email", "Telefone"], ["a", "b", "1"]])
+    caminho.append(alvo)
+    item = prov.next_item()
+    assert item is not None and prov.next_item() is None and prov.data is not None
+    vazio = DeferredTabularInputProvider(lambda: None, SCHEMA)
+    with pytest.raises(TabularInvalid) as e:
+        vazio.next_item()
+    assert e.value.detail == "TABULAR_SOURCE_MISSING"
