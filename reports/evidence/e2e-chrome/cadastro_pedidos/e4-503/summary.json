@@ -1,0 +1,23 @@
+{
+  "schema": "nekkora-rpa/run-summary",
+  "version": "1.0.0",
+  "execution_id": "ex-f9b63abc02084f7994a6",
+  "framework_version": "0.1.0",
+  "status": "COMPLETED",
+  "stop_code": null,
+  "stop_detail": null,
+  "cleanup_ok": true,
+  "counts": {
+    "SUCCEEDED": 1
+  },
+  "transactions": [
+    {
+      "transaction_id": "tx-7359b9326d646a6d8d2f",
+      "status": "SUCCEEDED",
+      "error_code": null,
+      "detail": null,
+      "attempts": 2,
+      "delivery": "COMMITTED"
+    }
+  ]
+}

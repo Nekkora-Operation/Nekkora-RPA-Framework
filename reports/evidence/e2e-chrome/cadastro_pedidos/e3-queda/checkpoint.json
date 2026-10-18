@@ -1,0 +1,27 @@
+{
+ "body": {
+  "process_name": "cadastro_pedidos",
+  "salt": "6f4fbb864cfbeafab8492d781c57cb3b",
+  "schema": "nekkora-rpa/checkpoint",
+  "transactions": {
+   "tx-6ead51e6fc1e3450b7c7": {
+    "attempts": 1,
+    "delivery": "COMMITTED",
+    "execution_id": "ex-ce534df5eec946bbaedf",
+    "side_effects": 1,
+    "status": "SUCCEEDED",
+    "updated_utc": "2026-10-18T01:18:14.200Z"
+   },
+   "tx-e95a59d61b6e9cfa5e24": {
+    "attempts": 1,
+    "delivery": "COMMITTED",
+    "execution_id": "ex-ce534df5eec946bbaedf",
+    "side_effects": 1,
+    "status": "SUCCEEDED",
+    "updated_utc": "2026-10-18T01:18:13.941Z"
+   }
+  },
+  "version": "1.0.0"
+ },
+ "integrity": "sha256:8775382d9c84c30f5fbe6a5229dc8e2924c6cdb5575bcdd9a9f6fb82303f6184"
+}

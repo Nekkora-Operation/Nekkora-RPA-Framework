@@ -1,0 +1,12 @@
+{
+  "schema": "nekkora-rpa/run-summary",
+  "version": "1.0.0",
+  "execution_id": "ex-87da4278757b48078974",
+  "framework_version": "0.1.0",
+  "status": "INIT_FAILED",
+  "stop_code": "INVALID_CONFIGURATION",
+  "stop_detail": "login_rejected",
+  "cleanup_ok": true,
+  "counts": {},
+  "transactions": []
+}

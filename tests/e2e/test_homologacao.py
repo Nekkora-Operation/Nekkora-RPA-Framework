@@ -365,3 +365,13 @@ def test_zz_artefatos_reais_seguem_os_contratos():
                 v(json.loads(f.read_text(encoding="utf-8")), "result-1.0.0.schema.json")
                 counts["result"] += 1
     assert all(counts.values()), counts
+    dest = os.environ.get("NK_EVIDENCE_DIR")
+    if dest:
+        # só eventos, checkpoint e resumo (verificados acima como livres de valores); entradas e resultados ficam fora
+        for out in set(ARTIFACTS):
+            for name in ("events.jsonl", "checkpoint.json", "summary.json"):
+                f = out / "run" / name
+                if f.exists():
+                    target = Path(dest) / out.parent.parent.name / out.name / name
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(f, target)

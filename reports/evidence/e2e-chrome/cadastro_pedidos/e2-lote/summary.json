@@ -1,0 +1,48 @@
+{
+  "schema": "nekkora-rpa/run-summary",
+  "version": "1.0.0",
+  "execution_id": "ex-c803ce3a737d4c8bb899",
+  "framework_version": "0.1.0",
+  "status": "COMPLETED",
+  "stop_code": null,
+  "stop_detail": null,
+  "cleanup_ok": true,
+  "counts": {
+    "SUCCEEDED": 2,
+    "BUSINESS_REJECTED": 2
+  },
+  "transactions": [
+    {
+      "transaction_id": "tx-9a687a9aeb213bbcc385",
+      "status": "SUCCEEDED",
+      "error_code": null,
+      "detail": null,
+      "attempts": 1,
+      "delivery": "COMMITTED"
+    },
+    {
+      "transaction_id": "tx-292437a8a4d53fff688e",
+      "status": "BUSINESS_REJECTED",
+      "error_code": "BUSINESS_RULE_REJECTED",
+      "detail": "PRODUTO_INEXISTENTE",
+      "attempts": 1,
+      "delivery": "COMMITTED"
+    },
+    {
+      "transaction_id": "tx-a9347edb25480cde5404",
+      "status": "BUSINESS_REJECTED",
+      "error_code": "BUSINESS_RULE_REJECTED",
+      "detail": "QUANTIDADE_INVALIDA",
+      "attempts": 1,
+      "delivery": "COMMITTED"
+    },
+    {
+      "transaction_id": "tx-e38bfc5f1c9706293e55",
+      "status": "SUCCEEDED",
+      "error_code": null,
+      "detail": null,
+      "attempts": 1,
+      "delivery": "COMMITTED"
+    }
+  ]
+}

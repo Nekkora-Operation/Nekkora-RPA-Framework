@@ -1,0 +1,31 @@
+{
+  "schema": "nekkora-rpa/run-summary",
+  "version": "1.0.0",
+  "execution_id": "ex-ce534df5eec946bbaedf",
+  "framework_version": "0.1.0",
+  "status": "COMPLETED",
+  "stop_code": null,
+  "stop_detail": null,
+  "cleanup_ok": true,
+  "counts": {
+    "SUCCEEDED": 2
+  },
+  "transactions": [
+    {
+      "transaction_id": "tx-e95a59d61b6e9cfa5e24",
+      "status": "SUCCEEDED",
+      "error_code": null,
+      "detail": null,
+      "attempts": 1,
+      "delivery": "COMMITTED"
+    },
+    {
+      "transaction_id": "tx-6ead51e6fc1e3450b7c7",
+      "status": "SUCCEEDED",
+      "error_code": null,
+      "detail": null,
+      "attempts": 1,
+      "delivery": "COMMITTED"
+    }
+  ]
+}

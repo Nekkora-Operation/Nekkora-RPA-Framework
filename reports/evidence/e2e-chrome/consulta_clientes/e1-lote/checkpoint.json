@@ -1,0 +1,55 @@
+{
+ "body": {
+  "process_name": "consulta_clientes",
+  "salt": "21c9dfb3bb607bf38d49f12e4b8445c1",
+  "schema": "nekkora-rpa/checkpoint",
+  "transactions": {
+   "tx-324ace8808d96b14b7d6": {
+    "attempts": 2,
+    "delivery": "COMMITTED",
+    "execution_id": "ex-58940db86a6f4907b719",
+    "side_effects": 0,
+    "status": "SUCCEEDED",
+    "updated_utc": "2026-10-18T01:18:05.948Z"
+   },
+   "tx-53750808cd7ff54af549": {
+    "attempts": 1,
+    "delivery": "COMMITTED",
+    "detail": "CLIENTE_INEXISTENTE",
+    "error_code": "BUSINESS_RULE_REJECTED",
+    "execution_id": "ex-58940db86a6f4907b719",
+    "side_effects": 0,
+    "status": "BUSINESS_REJECTED",
+    "updated_utc": "2026-10-18T01:18:06.057Z"
+   },
+   "tx-877268855252a670917f": {
+    "attempts": 1,
+    "delivery": "COMMITTED",
+    "execution_id": "ex-58940db86a6f4907b719",
+    "side_effects": 0,
+    "status": "SUCCEEDED",
+    "updated_utc": "2026-10-18T01:18:06.285Z"
+   },
+   "tx-91275f7b14e66804dee6": {
+    "attempts": 1,
+    "delivery": "COMMITTED",
+    "detail": "CODIGO_INVALIDO",
+    "error_code": "BUSINESS_RULE_REJECTED",
+    "execution_id": "ex-58940db86a6f4907b719",
+    "side_effects": 0,
+    "status": "BUSINESS_REJECTED",
+    "updated_utc": "2026-10-18T01:18:06.063Z"
+   },
+   "tx-f351a0821ead63800159": {
+    "attempts": 1,
+    "delivery": "COMMITTED",
+    "execution_id": "ex-58940db86a6f4907b719",
+    "side_effects": 0,
+    "status": "SUCCEEDED",
+    "updated_utc": "2026-10-18T01:18:06.172Z"
+   }
+  },
+  "version": "1.0.0"
+ },
+ "integrity": "sha256:cf609948536cd19c25bfcaab361a4349383623b25925fc95a18f4dc0b7c01abc"
+}

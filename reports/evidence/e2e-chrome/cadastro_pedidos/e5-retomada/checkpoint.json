@@ -1,0 +1,51 @@
+{
+ "body": {
+  "process_name": "cadastro_pedidos",
+  "salt": "e4ec4f6b2182c2bc1849481b6918b3bb",
+  "schema": "nekkora-rpa/checkpoint",
+  "transactions": {
+   "tx-4c7078192937373550a0": {
+    "attempts": 1,
+    "delivery": "COMMITTED",
+    "execution_id": "ex-1d789c9bf6034ffd81df",
+    "side_effects": 1,
+    "status": "SUCCEEDED",
+    "updated_utc": "2026-10-18T01:18:26.348Z"
+   },
+   "tx-4dd07c772bd681f28b71": {
+    "attempts": 1,
+    "delivery": "COMMITTED",
+    "execution_id": "ex-1d789c9bf6034ffd81df",
+    "side_effects": 1,
+    "status": "SUCCEEDED",
+    "updated_utc": "2026-10-18T01:18:26.880Z"
+   },
+   "tx-874cc025b7f3f51555ec": {
+    "attempts": 1,
+    "delivery": "COMMITTED",
+    "execution_id": "ex-1855344b514e4c3fa63b",
+    "side_effects": 1,
+    "status": "SUCCEEDED",
+    "updated_utc": "2026-10-18T01:18:20.282Z"
+   },
+   "tx-ac5d88d754d204e716ab": {
+    "attempts": 1,
+    "delivery": "COMMITTED",
+    "execution_id": "ex-1855344b514e4c3fa63b",
+    "side_effects": 1,
+    "status": "SUCCEEDED",
+    "updated_utc": "2026-10-18T01:18:20.031Z"
+   },
+   "tx-c946b02887f8fe00dadd": {
+    "attempts": 1,
+    "delivery": "COMMITTED",
+    "execution_id": "ex-1d789c9bf6034ffd81df",
+    "side_effects": 1,
+    "status": "SUCCEEDED",
+    "updated_utc": "2026-10-18T01:18:26.617Z"
+   }
+  },
+  "version": "1.0.0"
+ },
+ "integrity": "sha256:2521dd47ecf9cb0738aee22b4a7488f6baad61bb33197efbb227e4602e0da630"
+}

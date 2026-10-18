@@ -1,0 +1,56 @@
+{
+  "schema": "nekkora-rpa/run-summary",
+  "version": "1.0.0",
+  "execution_id": "ex-58940db86a6f4907b719",
+  "framework_version": "0.1.0",
+  "status": "COMPLETED",
+  "stop_code": null,
+  "stop_detail": null,
+  "cleanup_ok": true,
+  "counts": {
+    "SUCCEEDED": 3,
+    "BUSINESS_REJECTED": 2
+  },
+  "transactions": [
+    {
+      "transaction_id": "tx-324ace8808d96b14b7d6",
+      "status": "SUCCEEDED",
+      "error_code": null,
+      "detail": null,
+      "attempts": 2,
+      "delivery": "COMMITTED"
+    },
+    {
+      "transaction_id": "tx-53750808cd7ff54af549",
+      "status": "BUSINESS_REJECTED",
+      "error_code": "BUSINESS_RULE_REJECTED",
+      "detail": "CLIENTE_INEXISTENTE",
+      "attempts": 1,
+      "delivery": "COMMITTED"
+    },
+    {
+      "transaction_id": "tx-91275f7b14e66804dee6",
+      "status": "BUSINESS_REJECTED",
+      "error_code": "BUSINESS_RULE_REJECTED",
+      "detail": "CODIGO_INVALIDO",
+      "attempts": 1,
+      "delivery": "COMMITTED"
+    },
+    {
+      "transaction_id": "tx-f351a0821ead63800159",
+      "status": "SUCCEEDED",
+      "error_code": null,
+      "detail": null,
+      "attempts": 1,
+      "delivery": "COMMITTED"
+    },
+    {
+      "transaction_id": "tx-877268855252a670917f",
+      "status": "SUCCEEDED",
+      "error_code": null,
+      "detail": null,
+      "attempts": 1,
+      "delivery": "COMMITTED"
+    }
+  ]
+}
