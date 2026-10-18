@@ -291,7 +291,9 @@ def read_csv(
         for n, row in enumerate(rows[1:], start=2):
             if row and len(row) != width:
                 raise TabularInvalid("TABULAR_CSV_FIELD_COUNT", row=n)
-    cells: list[tuple[Any, ...]] = [tuple(v if v != "" else None for v in row) for row in rows if row != []]
+    # Registro vazio (``[]``) segue para ``_build`` como linha sem valores: no fim é descartado, entre registros é
+    # recusado com ``TABULAR_EMPTY_ROW``. Descartá-lo aqui deslocaria a numeração e aceitaria a linha no meio.
+    cells: list[tuple[Any, ...]] = [tuple(v if v != "" else None for v in row) for row in rows]
     return _build(cells, schema, limits, hashlib.sha256(raw).hexdigest())
 
 

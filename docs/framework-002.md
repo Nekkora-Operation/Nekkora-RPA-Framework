@@ -10,6 +10,9 @@ pelo Nekkora Studio para o RPA Challenge). Nada aqui é específico do desafio.
 - `read_xlsx` (extra opcional `excel` = `openpyxl`), `read_csv`, `read_tabular` → `TabularData` (`headers`, `rows`,
   `source_sha256`). Recusas com `TabularInvalid` (`TABULAR_INVALID`, detalhe só em código + linha/coluna): cabeçalho
   duplicado ou ausente, fórmula, macro, vínculo externo, zip-bomb, cota, linha vazia no meio, CSV malformado.
+  Linha vazia: no FIM é descartada; ENTRE registros é recusada com `TABULAR_EMPTY_ROW` (XLSX e CSV, LF ou CRLF). O
+  número da linha é a posição do REGISTRO (cabeçalho = 1), igual no XLSX e no CSV; um campo multilinha entre aspas
+  é um registro só.
   Cabeçalhos comparados após `strip` ("Last Name " ≡ "Last Name"). Número em coluna de texto só com
   `integer_as_text=True` e se for inteiro exato.
 - `TabularInputProvider.from_file(path, schema)` — um item de transação por linha; linha com problema vai com
@@ -58,4 +61,8 @@ rede (rota, proxy sumidouro, redirecionamento externo, POST de tentativa única)
 
 `tests/unit/test_tabular.py`, `tests/integration/test_framework002.py` (réplica do desafio com 10 rodadas a 100%,
 sósias, rótulo trocado, downloads recusados, guarda de rede falhando), `tests/contract/` e
-`tools/controle_negativo.py` (M14–M20: uma mutação por fronteira nova; 20/20 detectadas).
+`tools/controle_negativo.py` (M14–M21: uma mutação por fronteira nova; 21/21 detectadas).
+
+Correção da revisão R1: `read_csv` descartava registros vazios antes da validação, então uma linha vazia ENTRE
+registros passava em silêncio (o XLSX já recusava). Agora o registro vazio segue para a mesma regra do XLSX; testes
+de reprodução em `test_tabular.py` e mutação M21.

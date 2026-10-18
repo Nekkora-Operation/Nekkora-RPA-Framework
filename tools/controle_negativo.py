@@ -190,6 +190,14 @@ MUTATIONS = [
         "            return True",
         ["tests/integration/test_framework002.py"],
     ),
+    Mutation(
+        "M21",
+        "linha vazia entre registros do CSV é recusada (não some em silêncio)",
+        "tabular.py",
+        '[tuple(v if v != "" else None for v in row) for row in rows]',
+        '[tuple(v if v != "" else None for v in row) for row in rows if row != []]',
+        ["tests/unit/test_tabular.py"],
+    ),
 ]
 
 

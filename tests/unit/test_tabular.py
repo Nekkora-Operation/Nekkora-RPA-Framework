@@ -181,6 +181,41 @@ def test_csv_delimitador_informado(tmp_path: Path):
     assert read_csv(p, SCHEMA, delimiter="|").rows[0].values["Email"] == "b"
 
 
+@pytest.mark.parametrize("eol", ["\n", "\r\n"])
+@pytest.mark.parametrize(
+    ("body", "row"),
+    [
+        (["a,b,c", "", "d,e,f"], 3),
+        (["a,b,c", "d,e,f", "", "g,h,i"], 4),
+        (["a,b,c", "", "", "d,e,f"], 3),
+        (["a,b,c", ",,", "d,e,f"], 3),
+        (['"linha 1{eol}linha 2",b,c', "", "d,e,f"], 3),  # o registro multilinha conta como um só
+    ],
+)
+def test_csv_linha_vazia_entre_registros_recusada(tmp_path: Path, eol: str, body: list[str], row: int):
+    p = tmp_path / "a.csv"
+    p.write_bytes(eol.join(["Nome,Email,Telefone", *(b.format(eol=eol) for b in body)]).encode() + eol.encode())
+    with pytest.raises(TabularInvalid) as e:
+        read_csv(p, SCHEMA)
+    assert (e.value.detail, e.value.row) == ("TABULAR_EMPTY_ROW", row)
+    assert detail(lambda: TabularInputProvider.from_file(p, SCHEMA)) == "TABULAR_EMPTY_ROW"
+
+
+@pytest.mark.parametrize("eol", ["\n", "\r\n"])
+@pytest.mark.parametrize("final", ["", "{eol}", "{eol}{eol}", "{eol}{eol}{eol}", "{eol},,{eol}"])
+def test_csv_linhas_vazias_no_fim_aceitas_com_posicoes_preservadas(tmp_path: Path, eol: str, final: str):
+    p = tmp_path / "a.csv"
+    texto = eol.join(["Nome,Email,Telefone", "a,b,c", f'"x{eol}y",e,f', "g,h,i"]) + final.format(eol=eol)
+    p.write_bytes(texto.encode())
+    data = read_csv(p, SCHEMA)
+    assert [r.number for r in data.rows] == [2, 3, 4]
+    # o campo multilinha é preservado e não vira registro vazio
+    assert [r.values["Nome"] for r in data.rows] == ["a", f"x{eol}y", "g"]
+    prov = TabularInputProvider(data)
+    refs = [item.reference.split(":")[1] for item in iter(prov.next_item, None)]
+    assert refs == ["2", "3", "4"]
+
+
 # ------------------------------------------------------------------------------------------------ provider
 def test_provider_referencia_estavel_e_problemas(tmp_path: Path):
     p = xlsx(tmp_path / "a.xlsx", [["Nome", "Email", "Telefone"], [SENT, "b", "1"], ["c", None, "2"]])
