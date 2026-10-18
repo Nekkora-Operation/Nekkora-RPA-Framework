@@ -1,0 +1,19 @@
+<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Clientes — Entrar</title>
+<link rel="stylesheet" href="/lab.css"><header>Clientes (fictício)</header>
+<main><h1>Entrar</h1>
+<form id="form-login" onsubmit="return false">
+  <label for="usuario">Usuário</label><input id="usuario" name="usuario" autocomplete="off">
+  <label for="senha">Senha</label><input id="senha" name="senha" type="password" autocomplete="off">
+  <div><button id="entrar" type="submit">Entrar</button></div>
+  <p id="erro-login" class="erro oculto" role="alert">Usuário ou senha inválidos</p>
+</form></main>
+<script>
+document.getElementById('form-login').addEventListener('submit', async () => {
+  document.getElementById('erro-login').classList.add('oculto');
+  const r = await fetch('/api/clientes/login', {method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({usuario: document.getElementById('usuario').value,
+                          senha: document.getElementById('senha').value})});
+  if (r.ok) location.href = '/clientes/consulta.html';
+  else document.getElementById('erro-login').classList.remove('oculto');
+});
+</script></html>

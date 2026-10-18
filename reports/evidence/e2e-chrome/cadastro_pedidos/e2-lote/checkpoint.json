@@ -1,0 +1,47 @@
+{
+ "body": {
+  "process_name": "cadastro_pedidos",
+  "salt": "30bfa7bb3b6aed083f21d4afc14400e4",
+  "schema": "nekkora-rpa/checkpoint",
+  "transactions": {
+   "tx-292437a8a4d53fff688e": {
+    "attempts": 1,
+    "delivery": "COMMITTED",
+    "detail": "PRODUTO_INEXISTENTE",
+    "error_code": "BUSINESS_RULE_REJECTED",
+    "execution_id": "ex-c803ce3a737d4c8bb899",
+    "side_effects": 1,
+    "status": "BUSINESS_REJECTED",
+    "updated_utc": "2026-10-18T01:18:10.759Z"
+   },
+   "tx-9a687a9aeb213bbcc385": {
+    "attempts": 1,
+    "delivery": "COMMITTED",
+    "execution_id": "ex-c803ce3a737d4c8bb899",
+    "side_effects": 1,
+    "status": "SUCCEEDED",
+    "updated_utc": "2026-10-18T01:18:10.503Z"
+   },
+   "tx-a9347edb25480cde5404": {
+    "attempts": 1,
+    "delivery": "COMMITTED",
+    "detail": "QUANTIDADE_INVALIDA",
+    "error_code": "BUSINESS_RULE_REJECTED",
+    "execution_id": "ex-c803ce3a737d4c8bb899",
+    "side_effects": 0,
+    "status": "BUSINESS_REJECTED",
+    "updated_utc": "2026-10-18T01:18:10.765Z"
+   },
+   "tx-e38bfc5f1c9706293e55": {
+    "attempts": 1,
+    "delivery": "COMMITTED",
+    "execution_id": "ex-c803ce3a737d4c8bb899",
+    "side_effects": 1,
+    "status": "SUCCEEDED",
+    "updated_utc": "2026-10-18T01:18:11.018Z"
+   }
+  },
+  "version": "1.0.0"
+ },
+ "integrity": "sha256:805a50498db653b49407ef6584c4a6a2a80e7b09a7c87e6dd34c948c252b92a0"
+}

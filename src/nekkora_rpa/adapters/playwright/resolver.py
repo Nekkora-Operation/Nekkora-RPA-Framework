@@ -1,0 +1,156 @@
+"""Resolução de um alvo do registro numa página Playwright, com verificação de identidade.
+
+Regras (fail-closed):
+- cada candidato (preferido + alternativos) é contado; **qualquer** candidato com 2+ elementos → ``TARGET_AMBIGUOUS``
+  (nunca "o primeiro");
+- candidatos que acham exatamente um elemento têm de apontar para o MESMO nó; se discordam → ``TARGET_AMBIGUOUS``;
+- o nó achado tem de provar a identidade esperada (tag, tipo, papel e nome acessível exato pelo motor ARIA do
+  Playwright, documento principal, fora de shadow root); senão → ``TARGET_IDENTITY_MISMATCH``;
+- nenhum candidato acha nada → espera até o prazo → ``TARGET_NOT_FOUND``.
+O resultado é um ``ElementHandle`` preso ao nó verificado: a ação age sobre ESTE nó, não sobre o que o seletor
+casar mais tarde (troca de DOM entre verificação e ação vira ``TARGET_DETACHED``, nunca clique em outro elemento).
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from playwright.sync_api import ElementHandle, Locator, Page
+from playwright.sync_api import Error as PlaywrightError
+
+from ...errors.exceptions import PageClosed, TargetAmbiguous, TargetIdentityMismatch, TargetNotFound
+from ...resilience.timing import CancelToken, Clock, Deadline
+from ...selectors.schema import Expected, Strategy, Target
+from ...selectors.schema import Locator as Ref
+
+_IDENTITY_JS = """e => ({
+  tag: e.tagName.toLowerCase(),
+  type: (['input', 'button', 'select', 'textarea'].includes(e.tagName.toLowerCase()) ? (e.type || '')
+         : (e.getAttribute('type') || '')).toLowerCase(),
+  documentScope: e.getRootNode() === e.ownerDocument,
+  connected: e.isConnected,
+})"""
+
+
+@dataclass
+class Resolution:
+    handle: ElementHandle
+    strategy_index: int
+    """0 = preferido; n = n-ésimo alternativo."""
+
+
+def _css_str(v: str) -> str:
+    return '"' + v.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def build_locator(page: Page, ref: Ref) -> Locator:
+    if ref.strategy is Strategy.CSS:
+        return page.locator("css=" + (ref.expression or ""))
+    if ref.strategy is Strategy.XPATH:
+        return page.locator("xpath=" + (ref.expression or ""))
+    if ref.strategy is Strategy.ID:
+        return page.locator(f"css=[id={_css_str(ref.value or '')}]")
+    if ref.strategy is Strategy.NAME:
+        return page.locator(f"css=[name={_css_str(ref.value or '')}]")
+    if ref.strategy is Strategy.TEST_ID:
+        return page.locator(f"css=[data-testid={_css_str(ref.value or '')}]")
+    return page.get_by_role(ref.role, name=ref.name, exact=True)  # type: ignore[arg-type]
+
+
+def _count(loc: Locator) -> int:
+    return loc.count()
+
+
+def identity_mismatch(page: Page, handle: ElementHandle, expected: Expected) -> str | None:
+    """Campo da identidade que divergiu (``tag``, ``type``, ``scope``, ``role``, ``name``) ou ``None``.
+    Os valores observados ficam só aqui: nunca são devolvidos nem registrados."""
+    info = handle.evaluate(_IDENTITY_JS)
+    if not info["connected"]:
+        return "detached"
+    if info["tag"] != expected.tag:
+        return "tag"
+    if expected.type is not None and info["type"] != expected.type:
+        return "type"
+    if not info["documentScope"]:
+        return "scope"
+    if expected.role is not None:
+        # papel e nome pelo motor ARIA do Playwright, conferidos contra ESTE nó (não contra o que o seletor casar)
+        by_role = page.get_by_role(expected.role, include_hidden=True)  # type: ignore[arg-type]
+        if not by_role.evaluate_all("(els, h) => els.includes(h)", handle):
+            return "role"
+        if expected.name is not None:
+            by_name = page.get_by_role(expected.role, name=expected.name, exact=True, include_hidden=True)  # type: ignore[arg-type]
+            if not by_name.evaluate_all("(els, h) => els.includes(h)", handle):
+                return "name"
+    return None
+
+
+class Resolver:
+    def __init__(self, clock: Clock, cancel: CancelToken) -> None:
+        self.clock = clock
+        self.cancel = cancel
+        self.rejections: list[tuple[int, str]] = []
+
+    def resolve(self, page: Page, target: Target, deadline: Deadline, *, wait: bool = True) -> Resolution | None:
+        """Devolve a resolução, ou ``None`` quando ``wait=False`` e nada foi achado. Lança nos casos proibidos."""
+        interval = 0.05
+        self.rejections = []
+        while True:
+            self.cancel.raise_if_cancelled()
+            if page.is_closed():
+                raise PageClosed(key=target.key)
+            found: list[tuple[int, Locator, ElementHandle]] = []
+            try:
+                for i, ref in enumerate(target.candidates):
+                    loc = build_locator(page, ref)
+                    n = _count(loc)
+                    if n > 1:
+                        raise TargetAmbiguous(key=target.key, detail=f"candidate_{i}")
+                    if n == 1:
+                        handle = loc.element_handle(timeout=max(1, min(deadline.remaining_ms(), 1_000)))
+                        if handle is not None:
+                            found.append((i, loc, handle))
+                if found:
+                    return self._verify(page, target, found)
+            except PlaywrightError:
+                # o nó sumiu entre a contagem e a leitura (DOM em transição) ou a página navegou: conta-se de novo
+                for _, _, h in found:
+                    _dispose(h)
+                if page.is_closed():
+                    raise PageClosed(key=target.key) from None
+            except BaseException:
+                for _, _, h in found:
+                    _dispose(h)
+                raise
+            if not wait or deadline.expired:
+                if not wait:
+                    return None
+                raise TargetNotFound(key=target.key)
+            self.clock.sleep(min(interval, deadline.remaining_ms() / 1000.0), self.cancel)
+            interval = min(interval * 2, 0.25)
+
+    def _verify(self, page: Page, target: Target, found: list[tuple[int, Locator, ElementHandle]]) -> Resolution:
+        first_i, _, first_h = found[0]
+        try:
+            for _, _, other in found[1:]:
+                if not first_h.evaluate("(a, b) => a === b", other):
+                    raise TargetAmbiguous(key=target.key, detail="candidates_disagree")
+            mismatch = identity_mismatch(page, first_h, target.expected)
+        except BaseException:
+            for _, _, h in found:
+                _dispose(h)
+            raise
+        for _, _, h in found[1:]:
+            _dispose(h)
+        if mismatch is not None:
+            self.rejections.append((first_i, mismatch))
+            _dispose(first_h)
+            raise TargetIdentityMismatch(key=target.key, detail=mismatch)
+        return Resolution(first_h, first_i)
+
+
+def _dispose(h: ElementHandle) -> None:
+    try:
+        h.dispose()
+    except PlaywrightError:
+        pass

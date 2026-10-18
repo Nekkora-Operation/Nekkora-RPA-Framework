@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nekkora-rpa/result/1.0.0",
+  "title": "Resultado de transação (JsonDirectoryResultSink)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "transaction_id",
+    "status",
+    "error_code",
+    "detail",
+    "output"
+  ],
+  "properties": {
+    "schema": {
+      "const": "nekkora-rpa/result"
+    },
+    "version": {
+      "const": "1.0.0"
+    },
+    "transaction_id": {
+      "type": "string",
+      "pattern": "^tx-[0-9a-f]{20}$"
+    },
+    "status": {
+      "enum": [
+        "PENDING",
+        "IN_PROGRESS",
+        "SUCCEEDED",
+        "BUSINESS_REJECTED",
+        "FAILED_TECHNICAL",
+        "OUTCOME_UNKNOWN",
+        "SKIPPED",
+        "CANCELLED"
+      ]
+    },
+    "error_code": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "enum": [
+            "TARGET_NOT_FOUND",
+            "TARGET_AMBIGUOUS",
+            "TARGET_IDENTITY_MISMATCH",
+            "TARGET_NOT_READY",
+            "TARGET_DETACHED",
+            "ACTION_TIMEOUT",
+            "NAVIGATION_FAILED",
+            "PAGE_CLOSED",
+            "TRANSIENT_TECHNICAL_FAILURE",
+            "UNEXPECTED_ERROR",
+            "BUSINESS_RULE_REJECTED",
+            "OUTCOME_UNKNOWN",
+            "SECURITY_POLICY_BLOCKED",
+            "INVALID_CONFIGURATION",
+            "INVALID_ARGUMENT",
+            "SECRET_UNAVAILABLE",
+            "CHECKPOINT_CORRUPTED",
+            "CHECKPOINT_WRITE_FAILED",
+            "INPUT_PROVIDER_FAILED",
+            "TRANSACTION_DEADLINE_EXCEEDED",
+            "CANCELLED"
+          ]
+        }
+      ]
+    },
+    "detail": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$"
+        }
+      ]
+    },
+    "output": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object"
+        }
+      ]
+    }
+  }
+}

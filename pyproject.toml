@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nekkora-rpa"
+dynamic = ["version"]
+description = "Nekkora Python RPA Framework: runtime reutilizável (Playwright) com ciclo de vida transacional, alvos por chave com identidade, retentativa governada e logs seguros."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+authors = [{ name = "Nekkora" }]
+classifiers = ["Programming Language :: Python :: 3.12", "Private :: Do Not Upload"]
+dependencies = ["playwright>=1.63,<2"]  # piso = versão homologada (1.63.0); ver constraints/lab.txt
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.11", "build>=1.2", "jsonschema>=4.23"]
+
+[tool.setuptools.dynamic]
+version = { attr = "nekkora_rpa._version.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+nekkora_rpa = ["py.typed", "contracts/*.json"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+src = ["src", "tests", "examples", "lab"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "S", "BLE", "RUF"]
+ignore = ["S101", "RUF001", "RUF002", "RUF003", "S311", "N818", "UP047", "UP046"]
+# N818: as exceções têm o nome do código público (TargetNotFound ↔ TARGET_NOT_FOUND)
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "BLE", "N802", "RUF059", "UP031", "E501"]
+"lab/**" = ["S", "N802", "N815"]
+"src/nekkora_rpa/errors/codes.py" = ["S105"]
+"tools/**" = ["S105", "E501", "S603", "S607"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["nekkora_rpa"]
+mypy_path = "src"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "browser: precisa de navegador (Playwright) e do laboratório local",
+  "chrome: usa o Google Chrome instalado (channel=chrome), janela visível",
+  "e2e: instala o wheel em venv limpa e roda os exemplos como processos separados",
+]
+addopts = "-ra"

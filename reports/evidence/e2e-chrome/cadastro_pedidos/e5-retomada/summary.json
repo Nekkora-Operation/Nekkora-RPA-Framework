@@ -1,0 +1,55 @@
+{
+  "schema": "nekkora-rpa/run-summary",
+  "version": "1.0.0",
+  "execution_id": "ex-67e4dd72d57f45518e70",
+  "framework_version": "0.1.0",
+  "status": "COMPLETED",
+  "stop_code": null,
+  "stop_detail": null,
+  "cleanup_ok": true,
+  "counts": {
+    "SKIPPED": 5
+  },
+  "transactions": [
+    {
+      "transaction_id": "tx-ac5d88d754d204e716ab",
+      "status": "SKIPPED",
+      "error_code": null,
+      "detail": "ALREADY_FINAL",
+      "attempts": 1,
+      "delivery": "COMMITTED"
+    },
+    {
+      "transaction_id": "tx-874cc025b7f3f51555ec",
+      "status": "SKIPPED",
+      "error_code": null,
+      "detail": "ALREADY_FINAL",
+      "attempts": 1,
+      "delivery": "COMMITTED"
+    },
+    {
+      "transaction_id": "tx-4c7078192937373550a0",
+      "status": "SKIPPED",
+      "error_code": null,
+      "detail": "ALREADY_FINAL",
+      "attempts": 1,
+      "delivery": "COMMITTED"
+    },
+    {
+      "transaction_id": "tx-c946b02887f8fe00dadd",
+      "status": "SKIPPED",
+      "error_code": null,
+      "detail": "ALREADY_FINAL",
+      "attempts": 1,
+      "delivery": "COMMITTED"
+    },
+    {
+      "transaction_id": "tx-4dd07c772bd681f28b71",
+      "status": "SKIPPED",
+      "error_code": null,
+      "detail": "ALREADY_FINAL",
+      "attempts": 1,
+      "delivery": "COMMITTED"
+    }
+  ]
+}

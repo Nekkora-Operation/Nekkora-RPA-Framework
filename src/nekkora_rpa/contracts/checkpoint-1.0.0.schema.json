@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nekkora-rpa/checkpoint/1.0.0",
+  "title": "Checkpoint local",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "body",
+    "integrity"
+  ],
+  "properties": {
+    "integrity": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "body": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "version",
+        "process_name",
+        "salt",
+        "transactions"
+      ],
+      "properties": {
+        "schema": {
+          "const": "nekkora-rpa/checkpoint"
+        },
+        "version": {
+          "const": "1.0.0"
+        },
+        "process_name": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$"
+        },
+        "salt": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "transactions": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^tx-[0-9a-f]{20}$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status",
+              "delivery",
+              "side_effects",
+              "attempts"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "PENDING",
+                  "IN_PROGRESS",
+                  "SUCCEEDED",
+                  "BUSINESS_REJECTED",
+                  "FAILED_TECHNICAL",
+                  "OUTCOME_UNKNOWN",
+                  "SKIPPED",
+                  "CANCELLED"
+                ]
+              },
+              "delivery": {
+                "enum": [
+                  "NOT_DELIVERED",
+                  "COMMITTED",
+                  "UNCERTAIN",
+                  "REJECTED"
+                ]
+              },
+              "side_effects": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "attempts": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "error_code": {
+                "enum": [
+                  "TARGET_NOT_FOUND",
+                  "TARGET_AMBIGUOUS",
+                  "TARGET_IDENTITY_MISMATCH",
+                  "TARGET_NOT_READY",
+                  "TARGET_DETACHED",
+                  "ACTION_TIMEOUT",
+                  "NAVIGATION_FAILED",
+                  "PAGE_CLOSED",
+                  "TRANSIENT_TECHNICAL_FAILURE",
+                  "UNEXPECTED_ERROR",
+                  "BUSINESS_RULE_REJECTED",
+                  "OUTCOME_UNKNOWN",
+                  "SECURITY_POLICY_BLOCKED",
+                  "INVALID_CONFIGURATION",
+                  "INVALID_ARGUMENT",
+                  "SECRET_UNAVAILABLE",
+                  "CHECKPOINT_CORRUPTED",
+                  "CHECKPOINT_WRITE_FAILED",
+                  "INPUT_PROVIDER_FAILED",
+                  "TRANSACTION_DEADLINE_EXCEEDED",
+                  "CANCELLED"
+                ]
+              },
+              "detail": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$"
+              },
+              "execution_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$"
+              },
+              "updated_utc": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

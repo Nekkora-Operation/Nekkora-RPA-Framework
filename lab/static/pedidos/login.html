@@ -1,0 +1,19 @@
+<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Pedidos — Acesso</title>
+<link rel="stylesheet" href="/lab.css"><header>Pedidos (fictício)</header>
+<main><h1>Acesso do operador</h1>
+<div class="campos">
+  <input name="login" aria-label="Login do operador" autocomplete="off">
+  <input name="pass" type="password" aria-label="Senha do operador" autocomplete="off">
+  <button data-testid="acessar">Acessar</button>
+  <p class="msg erro oculto" role="alert">Acesso negado</p>
+</div></main>
+<script>
+document.querySelector('[data-testid=acessar]').addEventListener('click', async () => {
+  document.querySelector('.msg').classList.add('oculto');
+  const r = await fetch('/api/pedidos/login', {method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({usuario: document.querySelector('[name=login]').value,
+                          senha: document.querySelector('[name=pass]').value})});
+  if (r.ok) location.href = '/pedidos/novo.html';
+  else document.querySelector('.msg').classList.remove('oculto');
+});
+</script></html>

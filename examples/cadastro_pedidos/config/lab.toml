@@ -1,0 +1,28 @@
+# Configuração do laboratório local. Sem credenciais: elas vêm de NK_SECRET_PEDIDOS_USUARIO / NK_SECRET_PEDIDOS_SENHA.
+[runtime]
+environment = "lab"
+allowed_origins = ["http://127.0.0.1:18080"]
+base_url = "http://127.0.0.1:18080"
+process_name = "cadastro_pedidos"
+
+[timeouts]
+action_ms = 6000
+navigation_ms = 10000
+transaction_ms = 90000
+
+[retry]
+max_attempts = 2
+initial_backoff_ms = 200
+max_backoff_ms = 1000
+
+[batch]
+max_transaction_attempts = 2
+max_consecutive_technical_failures = 3
+
+[browser]
+channel = "chromium"
+headless = true
+
+[paths]
+selectors = "../selectors.json"
+run_dir = "../runs"
