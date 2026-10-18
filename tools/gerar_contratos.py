@@ -34,6 +34,7 @@ ACTIONS = [
     "navigate",
     "download",
     "mark",
+    "read_text_matching",
 ]
 
 

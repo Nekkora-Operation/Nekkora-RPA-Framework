@@ -98,7 +98,8 @@
         "read_text",
         "navigate",
         "download",
-        "mark"
+        "mark",
+        "read_text_matching"
       ]
     },
     "attempt": {

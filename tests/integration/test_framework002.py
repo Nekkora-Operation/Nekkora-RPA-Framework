@@ -181,3 +181,33 @@ def test_download_desabilitado_por_padrao(clean_lab, tmp_path: Path):  # type: i
         assert e.value.detail == "downloads_disabled"
     finally:
         h.close()
+
+
+def test_ler_texto_por_padrao_ancorado(desafio):  # type: ignore[no-untyped-def]
+    a = desafio.actions
+    a.navigate("/desafio/index.html")
+    m = a.mark(key("First Name"))
+    a.click("desafio.inicio.start", idempotent=True, postcondition=lambda: a.replaced(m))
+    for rodada in range(10):
+        for label in LABELS:
+            a.fill(key(label), DESAFIO[rodada][label])
+        m = a.mark(key("First Name"))
+        a.click("desafio.form.enviar", postcondition=lambda m=m: a.replaced(m))
+    padrao = r"^Congratulations! Your success rate is \d+% \( \d+ out of \d+ fields\) in \d+ milliseconds$"
+    texto = a.read_text_matching(padrao, step_id="FIM-01")
+    assert "100%" in texto and "70 out of 70" in texto
+    assert texto not in json.dumps([e.to_dict() for e in desafio.events.events])
+
+
+def test_padrao_de_texto_invalido_ausente_e_ambiguo(desafio):  # type: ignore[no-untyped-def]
+    from nekkora_rpa.errors import InvalidArgument
+
+    a = desafio.actions
+    a.navigate("/desafio/index.html")
+    for bad in ("sem ancora", "^aberto", "^(" + "x" * 400 + ")$", "^[$"):
+        with pytest.raises(InvalidArgument):
+            a.read_text_matching(bad)
+    with pytest.raises(TargetNotFound):
+        a.read_text_matching(r"^Nao existe nesta pagina$", timeout_ms=500)
+    with pytest.raises(TargetAmbiguous):
+        a.read_text_matching(r"^(First|Last) Name$", timeout_ms=500)

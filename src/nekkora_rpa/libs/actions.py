@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -41,6 +42,8 @@ from ..errors.exceptions import (
     OutcomeUnknown,
     PageClosed,
     SecurityPolicyBlocked,
+    TargetAmbiguous,
+    TargetNotFound,
     TransientTechnicalFailure,
     external,
 )
@@ -517,6 +520,49 @@ class Actions:
                 _dispose(handle)
 
         return self._run("is_visible", key, step_id, deadline, body, retry=NO_RETRY)
+
+    def read_text_matching(self, pattern: str, *, timeout_ms: int | None = None, step_id: str | None = None) -> str:
+        """Lê o texto do ÚNICO elemento cujo texto casa ``pattern`` — para observar uma mensagem que não tem rótulo nem
+        identidade exportável (ex.: resultado de um processo). ``pattern`` é um CONTRATO DE CONTEÚDO declarado por quem
+        configura o processo, não um seletor: precisa ser ancorado (``^...$``) e ter até 300 caracteres. Nenhum
+        elemento → espera até o prazo (``TARGET_NOT_FOUND``); mais de um → ``TARGET_AMBIGUOUS``. O texto lido é do
+        processo e nunca é registrado."""
+        self._check_step(step_id)
+        if (
+            not isinstance(pattern, str)
+            or not (pattern.startswith("^") and pattern.endswith("$"))
+            or len(pattern) > 300
+        ):
+            raise InvalidArgument(step_id=step_id, detail="pattern")
+        try:
+            regex = re.compile(pattern)
+        except re.error:
+            raise InvalidArgument(step_id=step_id, detail="pattern") from None
+        deadline = self.ctx.action_deadline(self._timeout(timeout_ms, self.ctx.config.timeouts.action_ms))
+
+        def body(_: int) -> str:
+            interval = 0.05
+            while True:
+                page = self.page
+                self._require_origin(page, None, step_id)
+                try:
+                    loc = page.get_by_text(regex)
+                    n = loc.count()
+                    if n > 1:
+                        raise TargetAmbiguous(step_id=step_id, detail="text_pattern")
+                    if n == 1:
+                        text = loc.text_content(timeout=_remaining(deadline, None, step_id)) or ""
+                        text = " ".join(text.split())
+                        if regex.match(text):
+                            return text
+                except PlaywrightError:
+                    pass  # página em transição: consulta de novo
+                if deadline.remaining_ms() <= 0:
+                    raise TargetNotFound(step_id=step_id, detail="text_pattern")
+                self.ctx.clock.sleep(min(interval, deadline.remaining_ms() / 1000.0), self.ctx.cancel)
+                interval = min(interval * 2, 0.25)
+
+        return self._run("read_text_matching", None, step_id, deadline, body, retry=NO_RETRY)
 
     def read_text(self, key: str, *, timeout_ms: int | None = None, step_id: str | None = None) -> str:
         """Lê o texto (ou o valor, em campos) do alvo verificado. O retorno é do processo: nunca é registrado."""
