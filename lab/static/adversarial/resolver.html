@@ -75,7 +75,9 @@ setTimeout(() => { const b = document.createElement('button'); b.id = 'tardio'; 
 setTimeout(() => { $('habilita').disabled = false; }, Number(p.get('habilita') || 1000));
 setTimeout(() => { $('capa-temp').remove(); }, Number(p.get('capa') || 700));
 $('fecha').addEventListener('mousedown', () => {
-  fetch('/api/lab/efeito?botao=fecha', {keepalive: true}); window.close(); });
+  // o efeito é registrado de forma síncrona na janela que abriu este pop-up (mesma origem), antes de fechar
+  try { if (window.opener) window.opener.__efeitos = (window.opener.__efeitos || 0) + 1; } catch (e) {}
+  window.close(); });
 $('efeito-lento').addEventListener('click', () => { fetch('/api/lab/efeito?botao=lento', {keepalive: true}); });
 const sombra = $('host').attachShadow({mode: 'open'});
 sombra.innerHTML = '<button id="sombra" type="button">Sombra</button>';

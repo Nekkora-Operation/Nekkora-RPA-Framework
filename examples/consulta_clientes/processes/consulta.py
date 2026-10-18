@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import re
 
-from nekkora_rpa import ProcessResult, Reconciliation, ReconciliationVerdict, RpaProcess, Runtime, TransactionItem
-from nekkora_rpa.errors import BusinessRuleRejected, InvalidConfiguration
 from pages.consulta import ConsultaPage
 from pages.login import LoginPage
+
+from nekkora_rpa import ProcessResult, Reconciliation, ReconciliationVerdict, RpaProcess, Runtime, TransactionItem
+from nekkora_rpa.errors import BusinessRuleRejected, InvalidConfiguration
 
 CODIGO = re.compile(r"^C-\d{4}$")
 

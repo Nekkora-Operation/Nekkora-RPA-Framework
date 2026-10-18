@@ -20,7 +20,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
-
 from lab.server import CLIENTES, Lab
 
 pytestmark = pytest.mark.e2e
@@ -81,9 +80,17 @@ ARTIFACTS: list[Path] = []
 OUTPUTS: list[str] = []
 
 
-def run_example(v: Venv, lab: Lab, example: str, items: list[dict[str, object]], name: str,
-                *, creds: dict[str, tuple[str, str]] | None = None, extra: list[str] | None = None,
-                background: bool = False) -> tuple[int, dict[str, object], Path] | subprocess.Popen[str]:
+def run_example(
+    v: Venv,
+    lab: Lab,
+    example: str,
+    items: list[dict[str, object]],
+    name: str,
+    *,
+    creds: dict[str, tuple[str, str]] | None = None,
+    extra: list[str] | None = None,
+    background: bool = False,
+) -> tuple[int, dict[str, object], Path] | subprocess.Popen[str]:
     d = v.work / example
     out = d / "execucoes" / name
     out.mkdir(parents=True, exist_ok=True)
@@ -94,17 +101,37 @@ def run_example(v: Venv, lab: Lab, example: str, items: list[dict[str, object]],
     for system, (u, p) in (creds or SENT).items():
         env[f"NK_SECRET_{system.upper()}_USUARIO"] = u
         env[f"NK_SECRET_{system.upper()}_SENHA"] = p
-    cmd = [str(v.python), str(d / "main.py"), "--config", str(d / "config" / "lab.toml"), "--entrada", str(entrada),
-           "--saida", str(out / "resultados"), "--run-dir", str(out / "run"), "--base-url", lab.url, "--console",
-           "--channel", os.environ.get("NK_BROWSER_CHANNEL", "chromium")]
+    cmd = [
+        str(v.python),
+        str(d / "main.py"),
+        "--config",
+        str(d / "config" / "lab.toml"),
+        "--entrada",
+        str(entrada),
+        "--saida",
+        str(out / "resultados"),
+        "--run-dir",
+        str(out / "run"),
+        "--base-url",
+        lab.url,
+        "--console",
+        "--channel",
+        os.environ.get("NK_BROWSER_CHANNEL", "chromium"),
+    ]
     if os.environ.get("NK_HEADLESS", "1") == "0":
         cmd.append("--visivel")
     cmd += extra or []
     ARTIFACTS.append(out)
     if background:
         # saída em arquivos: um PIPE não lido enche e trava o processo
-        return subprocess.Popen(cmd, cwd=str(v.work), env=env, stdout=(out / "stdout-1.txt").open("w"),
-                                stderr=(out / "stderr-1.txt").open("w"), text=True)
+        return subprocess.Popen(
+            cmd,
+            cwd=str(v.work),
+            env=env,
+            stdout=(out / "stdout-1.txt").open("w"),
+            stderr=(out / "stderr-1.txt").open("w"),
+            text=True,
+        )
     r = subprocess.run(cmd, cwd=str(v.work), env=env, capture_output=True, text=True, timeout=600, check=False)
     OUTPUTS.extend([r.stdout, r.stderr])
     (out / "stdout.txt").write_text(r.stdout, encoding="utf-8")
@@ -131,8 +158,10 @@ def by_status(out: Path) -> dict[str, int]:
 
 # ------------------------------------------------------------------------------------------------ distribuição
 def test_pacote_instalado_e_o_usado_e_exemplos_nao_copiam_o_nucleo(venv: Venv):
-    r = _run([str(venv.python), "-c", "import nekkora_rpa, sys; print(nekkora_rpa.__file__); print(sys.prefix)"],
-             cwd=str(venv.work))
+    r = _run(
+        [str(venv.python), "-c", "import nekkora_rpa, sys; print(nekkora_rpa.__file__); print(sys.prefix)"],
+        cwd=str(venv.work),
+    )
     file, prefix = r.stdout.split()
     assert Path(file).is_relative_to(Path(prefix)) and not Path(file).is_relative_to(ROOT)
     for ex in ("consulta_clientes", "cadastro_pedidos"):
@@ -140,15 +169,26 @@ def test_pacote_instalado_e_o_usado_e_exemplos_nao_copiam_o_nucleo(venv: Venv):
             text = py.read_text(encoding="utf-8")
             assert not re.search(r"^\s*(class (Actions|Engine|Resolver|RetryPolicy)\b|def run_with_retry)", text, re.M)
             for m in re.finditer(r"^\s*(?:from|import)\s+([\w.]+)", text, re.M):
-                assert m.group(1).split(".")[0] in {"nekkora_rpa", "pages", "processes", "__future__", "re",
-                                                    "dataclasses"}, (py, m.group(1))
+                assert m.group(1).split(".")[0] in {
+                    "nekkora_rpa",
+                    "pages",
+                    "processes",
+                    "__future__",
+                    "re",
+                    "dataclasses",
+                }, (py, m.group(1))
 
 
 # ------------------------------------------------------------------------------------------------ processo 1
 def test_consulta_lote_misto_com_falha_transitoria_recuperada(venv: Venv, fresh: Lab):
     fresh.fault("clientes.consulta", "error500", count=1)  # 1ª consulta: serviço indisponível
-    items = [{"codigo": "C-1001"}, {"codigo": "C-9999"}, {"codigo": "invalido"}, {"codigo": "C-1004"},
-             {"codigo": "C-1002"}]
+    items = [
+        {"codigo": "C-1001"},
+        {"codigo": "C-9999"},
+        {"codigo": "invalido"},
+        {"codigo": "C-1004"},
+        {"codigo": "C-1002"},
+    ]
     code, summary, out = run_example(venv, fresh, "consulta_clientes", items, "e1-lote")
     assert code == 0 and summary["status"] == "COMPLETED", summary
     assert by_status(out) == {"SUCCEEDED": 3, "BUSINESS_REJECTED": 2}
@@ -164,16 +204,28 @@ def test_consulta_lote_misto_com_falha_transitoria_recuperada(venv: Venv, fresh:
 
 
 def test_consulta_credencial_recusada_para_no_init_sem_insistir(venv: Venv, fresh: Lab):
-    code, summary, _ = run_example(venv, fresh, "consulta_clientes", [{"codigo": "C-1001"}], "e7-credencial",
-                                   creds={"clientes": ("usr.SENTINELA-U1", "errada-SENTINELA-P9")})
+    code, summary, _ = run_example(
+        venv,
+        fresh,
+        "consulta_clientes",
+        [{"codigo": "C-1001"}],
+        "e7-credencial",
+        creds={"clientes": ("usr.SENTINELA-U1", "errada-SENTINELA-P9")},
+    )
     assert code == 3 and summary["status"] == "INIT_FAILED" and summary["stop_detail"] == "login_rejected"
     assert fresh.oracle()["logins"] == {"ok": 0, "recusado": 1}
     assert fresh.oracle()["consultas"] == []
 
 
 def test_configuracao_fora_do_laboratorio_e_recusada(venv: Venv, fresh: Lab):
-    code, summary, _ = run_example(venv, fresh, "consulta_clientes", [{"codigo": "C-1001"}], "e6-origem",
-                                   extra=["--base-url", "https://erp.exemplo.com.br"])
+    code, summary, _ = run_example(
+        venv,
+        fresh,
+        "consulta_clientes",
+        [{"codigo": "C-1001"}],
+        "e6-origem",
+        extra=["--base-url", "https://erp.exemplo.com.br"],
+    )
     assert code == 5 and summary["detail"] == "allowed_origins_not_lab"
     assert fresh.oracle()["hits"] == {}
 
@@ -208,8 +260,9 @@ def test_pedidos_lote_misto(venv: Venv, fresh: Lab):
 
 def test_pedido_criado_e_conexao_perdida_reconcilia_sem_duplicar(venv: Venv, fresh: Lab):
     fresh.fault("pedidos.criar:REF-A", "drop_after")
-    code, summary, out = run_example(venv, fresh, "cadastro_pedidos",
-                                     pedidos(("REF-A", "P-10", 1), ("REF-B", "P-20", 2)), "e3-queda")
+    code, summary, out = run_example(
+        venv, fresh, "cadastro_pedidos", pedidos(("REF-A", "P-10", 1), ("REF-B", "P-20", 2)), "e3-queda"
+    )
     assert code == 0, summary
     assert oracle_orders(fresh) == {"REF-A": 1, "REF-B": 1}
     assert fresh.oracle()["tentativas_pedido"] == 2  # o duplo clique da REF-A NÃO foi repetido
@@ -262,8 +315,11 @@ def test_zz_nenhum_valor_sensivel_em_artefatos_saida_ou_logs():
     """Varre TUDO o que as execuções acima persistiram (eventos, checkpoint, resumo, stdout/stderr) e também os
     resultados (registro de negócio), procurando credenciais, a observação sentinela e as referências/códigos."""
     assert ARTIFACTS, "rode a suíte inteira"
-    forbidden = [u for u, _ in SENT.values()] + [p for _, p in SENT.values()] + [
-        "errada-SENTINELA-P9", "SENTINELA-OBS", "123.456.789-09", "SENTINELA"]
+    forbidden = (
+        [u for u, _ in SENT.values()]
+        + [p for _, p in SENT.values()]
+        + ["errada-SENTINELA-P9", "SENTINELA-OBS", "123.456.789-09", "SENTINELA"]
+    )
     item_values = ["REF-", "C-1001", "C-9999", "C-1004", "C-1002", "invalido", "P-10", "P-30", "Aurora Ficticia"]
     files = 0
     for out in set(ARTIFACTS):
@@ -281,3 +337,31 @@ def test_zz_nenhum_valor_sensivel_em_artefatos_saida_ou_logs():
         for s in forbidden + item_values:
             assert s not in text, s
     assert files >= 20
+
+
+def test_zz_artefatos_reais_seguem_os_contratos():
+    from importlib import resources
+
+    import jsonschema
+
+    def v(instance: object, name: str) -> None:
+        text = resources.files("nekkora_rpa").joinpath("contracts", name).read_text(encoding="utf-8")
+        jsonschema.Draft202012Validator(json.loads(text)).validate(instance)
+
+    counts = {"events": 0, "checkpoint": 0, "summary": 0, "result": 0}
+    for out in set(ARTIFACTS):
+        for f in out.rglob("*.json*"):
+            if f.name == "events.jsonl":
+                for line in f.read_text(encoding="utf-8").splitlines():
+                    v(json.loads(line), "events-1.0.0.schema.json")
+                    counts["events"] += 1
+            elif f.name == "checkpoint.json":
+                v(json.loads(f.read_text(encoding="utf-8")), "checkpoint-1.0.0.schema.json")
+                counts["checkpoint"] += 1
+            elif f.name == "summary.json":
+                v(json.loads(f.read_text(encoding="utf-8")), "run-summary-1.0.0.schema.json")
+                counts["summary"] += 1
+            elif "resultados" in f.parts:
+                v(json.loads(f.read_text(encoding="utf-8")), "result-1.0.0.schema.json")
+                counts["result"] += 1
+    assert all(counts.values()), counts

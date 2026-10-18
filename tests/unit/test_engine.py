@@ -457,7 +457,7 @@ def test_desconhecido_reconciliado_como_feito_nao_repete():
     proc.reconcile_verdicts["a"] = ReconciliationVerdict.DONE
     summary, events, sink = run(proc, items("a"), max_transaction_attempts=3)
     assert statuses(summary) == [S.SUCCEEDED] and proc.calls == {"a": 1} and proc.reconciled == ["a"]
-    assert list(sink.delivered.values())[0].output == {"reconciliado": True}
+    assert next(iter(sink.delivered.values())).output == {"reconciliado": True}
     assert "RECONCILIATION_COMPLETED" in events.codes()
 
 

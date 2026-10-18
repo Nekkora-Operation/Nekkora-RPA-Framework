@@ -32,12 +32,16 @@ class NovoPedidoPage(BasePage):
             ]
         )
         self.act.click(
-            self.k("revisar"), step_id="NOV-01", idempotent=True,
+            self.k("revisar"),
+            step_id="NOV-01",
+            idempotent=True,
             postcondition=lambda: self.act.is_visible(self.k("revisao")),
         )
         # efeito colateral: cria o pedido. NÃO idempotente → nunca repetido automaticamente
         self.act.double_click(
-            self.k("confirmar"), step_id="NOV-02", timeout_ms=10_000,
+            self.k("confirmar"),
+            step_id="NOV-02",
+            timeout_ms=10_000,
             postcondition=lambda: any(self.act.is_visible(self.k(f)) for f in FINS),
         )
         if self.act.is_visible(self.k("protocolo"), step_id="NOV-03"):

@@ -18,7 +18,9 @@ class ListaPedidosPage(BasePage):
         """Protocolos registrados para a referência; ``None`` se a lista não pôde ser lida."""
         self.act.fill(self.k("referencia"), referencia, step_id="LIS-01")
         self.act.click(
-            self.k("buscar"), step_id="LIS-02", idempotent=True,
+            self.k("buscar"),
+            step_id="LIS-02",
+            idempotent=True,
             postcondition=lambda: any(self.act.is_visible(self.k(f)) for f in self.FINS),
         )
         if self.act.is_visible(self.k("vazia"), step_id="LIS-03"):

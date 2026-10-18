@@ -39,6 +39,7 @@ ignore = ["S101", "RUF001", "RUF002", "RUF003", "S311", "N818", "UP047", "UP046"
 "tests/**" = ["S", "BLE", "N802", "RUF059", "UP031", "E501"]
 "lab/**" = ["S", "N802", "N815"]
 "src/nekkora_rpa/errors/codes.py" = ["S105"]
+"tools/**" = ["S105", "E501"]
 
 [tool.mypy]
 python_version = "3.12"

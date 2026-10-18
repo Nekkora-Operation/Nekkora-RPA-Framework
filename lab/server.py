@@ -226,6 +226,13 @@ class Handler(BaseHTTPRequestHandler):
             sid = secrets.token_hex(16)
             st.sessions[sid] = system
             return self._json(200, {"ok": True}, {"Set-Cookie": f"lab_sid={sid}; Path=/; HttpOnly; SameSite=Lax"})
+        if path == "/api/lab/eco":
+            with st.lock:
+                st.hits["POST /api/lab/eco"] = st.hits.get("POST /api/lab/eco", 0) + 1
+            fault = st.take_fault("eco")
+            if fault is not None and fault.mode == "drop_after":
+                return self._drop()
+            return self._json(201, {"ok": True}, {"Set-Cookie": "lab_eco=1; Path=/"})
         if path == "/api/pedidos":
             if self._session() != "pedidos":
                 return self._json(401, {"erro": "SEM_SESSAO"})

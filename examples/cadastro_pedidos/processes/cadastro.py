@@ -8,11 +8,12 @@
 
 from __future__ import annotations
 
-from nekkora_rpa import ProcessResult, Reconciliation, ReconciliationVerdict, RpaProcess, Runtime, TransactionItem
-from nekkora_rpa.errors import BusinessRuleRejected, InvalidConfiguration
 from pages.acesso import AcessoPage
 from pages.lista_pedidos import ListaPedidosPage
 from pages.novo_pedido import NovoPedidoPage
+
+from nekkora_rpa import ProcessResult, Reconciliation, ReconciliationVerdict, RpaProcess, Runtime, TransactionItem
+from nekkora_rpa.errors import BusinessRuleRejected, InvalidConfiguration
 
 
 class CadastroPedidos(RpaProcess):

@@ -148,7 +148,7 @@ def test_falha_depois_do_despacho_e_outcome_unknown_e_nao_repete(harness):  # ty
     with pytest.raises(OutcomeUnknown) as e:
         harness.actions.click("adv.fecha", timeout_ms=3_000)
     assert e.value.detail == "ACTION_INTERRUPTED"
-    assert harness.lab.oracle()["hits"].get("/api/lab/efeito") == 1  # o efeito aconteceu UMA vez
+    assert harness.session.page.evaluate("() => window.__efeitos") == 1  # o efeito aconteceu UMA vez
     codes = harness.codes()
     assert "RETRY_SCHEDULED" not in codes and "RETRY_DENIED" in codes and "OUTCOME_UNKNOWN" in codes
 
@@ -324,3 +324,50 @@ def test_cancelamento_durante_espera(harness):  # type: ignore[no-untyped-def]
         harness.actions.click("adv.inexistente", timeout_ms=10_000)
     assert harness.ctx.clock.monotonic() - t0 < 2.0
     assert harness.lab_counter("salvar") == 0
+
+
+# ------------------------------------------------------------------------------------------------ transporte
+_POST = (
+    "async () => { try { const r = await fetch('/api/lab/eco', {method: 'POST', body: '{}'}); return r.status }"
+    " catch (e) { return 'erro' } }"
+)
+
+
+def test_post_com_conexao_derrubada_chega_uma_vez_e_a_pagina_ve_erro(harness):  # type: ignore[no-untyped-def]
+    harness.open_adv()
+    assert harness.page.evaluate(_POST) == 201  # aquece a conexão keep-alive
+    harness.lab.fault("eco", "drop_after")
+    assert harness.page.evaluate(_POST) == "erro"
+    assert harness.lab.oracle()["hits"]["POST /api/lab/eco"] == 2  # 1 normal + 1 derrubado; nenhum reenvio
+    assert harness.session.transport_failures == 1
+    assert any(c["name"] == "lab_eco" for c in harness.session.context.cookies())
+
+
+def test_causa_raiz_chromium_reenvia_post_sem_a_guarda(clean_lab):  # type: ignore[no-untyped-def]
+    """Comportamento do navegador SEM o framework (documenta o achado F9-A2; se mudar, este teste avisa)."""
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as p:
+        b = p.chromium.launch()
+        page = b.new_page()
+        page.goto(clean_lab.url + "/adversarial/destino.html")
+        assert page.evaluate(_POST) == 201
+        clean_lab.fault("eco", "drop_after")
+        status = page.evaluate(_POST)
+        b.close()
+    assert status == 201  # a página vê sucesso...
+    assert clean_lab.oracle()["hits"]["POST /api/lab/eco"] == 3  # ...mas o servidor recebeu o POST duas vezes
+
+
+def test_causa_raiz_roteamento_nao_ve_redirecionamento(clean_lab):  # type: ignore[no-untyped-def]
+    """Sem a camada de rede, um 302 para outra origem chega ao destino mesmo com roteamento (achado F0-A10)."""
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as p:
+        b = p.chromium.launch()
+        ctx = b.new_context()
+        ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(clean_lab.url) else r.abort())
+        page = ctx.new_page()
+        page.goto(clean_lab.url + "/redir/externo")
+        b.close()
+    assert clean_lab.oracle()["external_hits"] == 1
