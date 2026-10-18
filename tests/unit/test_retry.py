@@ -70,7 +70,7 @@ def test_contexto_suprimido_mesmo_sem_from_none():
         try:
             raise RuntimeError("payload SENTINELA")
         except RuntimeError:
-            raise TransientTechnicalFailure() from None
+            raise TransientTechnicalFailure()  # noqa: B904 — de propósito: sem "from None"
     except NekkoraRpaError as err:
         assert "SENTINELA" not in "".join(traceback.format_exception(err))
 
