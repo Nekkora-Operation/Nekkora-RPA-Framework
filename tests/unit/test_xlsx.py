@@ -287,6 +287,16 @@ def test_tudo_ou_nada_retem_planilha_parcial(tmp_path: Path) -> None:
     assert rep.status is OutputStatus.WITHHELD
 
 
+def test_lote_interrompido_retem_mesmo_com_todas_as_linhas_boas(tmp_path: Path) -> None:
+    (tmp_path / "out").mkdir()
+    s = sink(tmp_path)
+    s.deliver(ITEM, outcome(1))
+    s.deliver(ITEM, outcome(2))
+    rep = s.finalize(OutputRun(False, ((outcome(1).transaction_id, TransactionStatus.SUCCEEDED),)))
+    assert rep.status is OutputStatus.WITHHELD and rep.detail == "incomplete_run"
+    assert not (tmp_path / "out" / "bio.xlsx").exists()
+
+
 def test_somente_sucesso_grava_as_boas(tmp_path: Path) -> None:
     (tmp_path / "out").mkdir()
     s = sink(tmp_path, commit=CommitPolicy.SUCCEEDED_ONLY)
