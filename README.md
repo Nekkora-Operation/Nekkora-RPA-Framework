@@ -5,18 +5,29 @@ duplicar o núcleo: registro de alvos por chave com verificação de identidade,
 transacional `INIT → TRANSFER_DATA_IN → PROCESS → TRANSFER_DATA_OUT → END`, erros tipados, retentativa que nunca
 repete um desfecho desconhecido, checkpoint com retomada e reconciliação, e logs estruturados sem valores sensíveis.
 
-Inspirado conceitualmente no UiPath REFramework, com contratos e comportamento próprios. Versão 0.1.0, resultado da
-missão NEKKORA-RPA-FRAMEWORK-001. **Escopo desta versão: somente laboratório local (loopback) e dados sintéticos.**
+Inspirado conceitualmente no UiPath REFramework, com contratos e comportamento próprios. Versão atual **0.3.0**
+(novidades: [docs/framework-003.md](docs/framework-003.md)); a base veio da missão NEKKORA-RPA-FRAMEWORK-001. **Escopo desta versão: somente laboratório local (loopback) e dados sintéticos.**
 
 O que ele **não** é: um gerador de código, um SDD, uma plataforma de execução distribuída, nem um adaptador
 Windows/SAP/API/Excel.
 
 ## Instalação
 
+O pacote **ainda não está publicado em índice** (a decisão de distribuição/licença é da titular — ver
+[docs/distribuicao.md](docs/distribuicao.md)). Até lá, instala-se o wheel construído e verificado deste repositório,
+numa venv própria, com as dependências travadas POR HASH:
+
 ```sh
-python -m pip install nekkora_rpa-0.1.0-py3-none-any.whl -c constraints/lab.txt   # versões homologadas
-python -m playwright install chromium        # se o navegador da versão travada ainda não estiver baixado
+python -m venv .venv
+.venv/Scripts/python -m pip install --require-hashes --only-binary=:all: -r constraints/lab.lock   # Linux: .venv/bin/python
+.venv/Scripts/python -m pip install --no-deps nekkora_rpa-0.3.0-py3-none-any.whl
+.venv/Scripts/python -m pip check
+python -m playwright install chromium        # só para Chromium (o Google Chrome instalado usa browser.channel = "chrome")
 ```
+
+Depois de uma publicação aprovada pela titular: `python -m pip install "nekkora-rpa[excel]==0.3.0"` (o extra `excel` traz
+o `openpyxl` da escrita de planilhas). O Nekkora Studio prepara esse ambiente sozinho, com confirmação (Dependency
+Manager). Para construir e verificar os artefatos: `python tools/verificar_distribuicao.py --saida <pasta>`.
 
 Requisitos: Python ≥ 3.12; dependência direta única `playwright>=1.63,<2` (homologado com 1.63.0). Para usar o Google
 Chrome instalado, configure `browser.channel = "chrome"`.

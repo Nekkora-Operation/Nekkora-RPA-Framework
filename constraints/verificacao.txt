@@ -1,0 +1,8 @@
+# Ferramentas que o Nekkora Studio usa para VERIFICAR o código gerado (V4/V5): ruff e mypy, com o fechamento exato.
+ast_serialize==0.13.1
+librt==0.16.0
+mypy==2.4.0
+mypy_extensions==1.1.0
+pathspec==1.1.1
+ruff==0.17.1
+typing_extensions==4.16.0
