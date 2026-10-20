@@ -60,7 +60,8 @@ jobs:
         with:
           python-version: "3.12"
       - name: Ferramentas de construção travadas por hash
-        run: python -m pip install --require-hashes --only-binary=:all: -r constraints/build.lock
+        run: |
+          python -m pip install --require-hashes --only-binary=:all: -r constraints/build.lock
       - name: Construir e verificar (conteúdo, metadados, instalação limpa do wheel e do sdist)
         run: python tools/verificar_distribuicao.py --sem-isolamento --saida verificacao
       - name: twine check
