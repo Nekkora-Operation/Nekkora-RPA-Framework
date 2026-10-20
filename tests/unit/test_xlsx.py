@@ -483,3 +483,59 @@ def test_engine_com_saida_travada_termina_com_falha_registrada(tmp_path: Path, m
     assert summary.output.status is OutputStatus.FAILED and summary.output.detail == "locked"  # type: ignore[attr-defined]
     assert summary.status is RunStatus.COMPLETED_WITH_FAILURES  # type: ignore[attr-defined]
     assert "OUTPUT_FAILED" in events.codes()
+
+
+# ---------------------------------------------------------------------------------- E2E-002: estado sem valores após o commit
+def test_depois_do_commit_o_estado_nao_guarda_valores(tmp_path: Path) -> None:
+    (tmp_path / "out").mkdir()
+    s = sink(tmp_path)
+    s.deliver(ITEM, outcome(1, ocupacao=SENT))
+    s.deliver(ITEM, outcome(2))
+    assert s.finalize(OutputRun(True)).status is OutputStatus.COMMITTED
+    st = (tmp_path / "estado" / "bio.xlsx-output.json").read_text(encoding="utf-8")
+    doc = json.loads(st)
+    assert SENT not in st and "exemplo.test" not in st, "valores só na planilha"
+    assert doc["version"] == "1.1.0" and doc["rows"] == {} and len(doc["committed_transactions"]) == 2
+    s2 = sink(tmp_path)  # retomada depois do commit: reconhece pelo hash, não regrava
+    before = (tmp_path / "out" / "bio.xlsx").read_bytes()
+    s2.deliver(ITEM, outcome(1, ocupacao=SENT))  # transação já gravada repetida: nada muda
+    rep = s2.finalize(OutputRun(True))
+    assert rep.status is OutputStatus.COMMITTED and rep.detail == "already_committed" and rep.rows == 2
+    assert (tmp_path / "out" / "bio.xlsx").read_bytes() == before
+
+
+def test_transacao_nova_nao_reabre_saida_ja_gravada(tmp_path: Path) -> None:
+    (tmp_path / "out").mkdir()
+    s = sink(tmp_path)
+    s.deliver(ITEM, outcome(1))
+    assert s.finalize(OutputRun(True)).status is OutputStatus.COMMITTED
+    with pytest.raises(SinkRejected, match="output_committed"):
+        s.deliver(ITEM, outcome(3))  # reescreveria a planilha sem a linha 1: é outra execução
+    with pytest.raises(SinkRejected, match="output_committed"):
+        s.deliver(ITEM, outcome(4, TransactionStatus.FAILED_TECHNICAL))
+
+
+def test_planilha_alterada_depois_do_commit_nao_e_regravada(tmp_path: Path) -> None:
+    (tmp_path / "out").mkdir()
+    s = sink(tmp_path)
+    s.deliver(ITEM, outcome(1))
+    assert s.finalize(OutputRun(True)).status is OutputStatus.COMMITTED
+    (tmp_path / "out" / "bio.xlsx").write_bytes(b"outro conteudo")
+    rep = sink(tmp_path).finalize(OutputRun(True))
+    assert rep.status is OutputStatus.FAILED and rep.detail == "committed_output_changed"
+    assert (tmp_path / "out" / "bio.xlsx").read_bytes() == b"outro conteudo"
+
+
+def test_estado_1_0_0_com_valores_e_esquecido_na_leitura(tmp_path: Path) -> None:
+    (tmp_path / "out").mkdir()
+    s = sink(tmp_path)
+    s.deliver(ITEM, outcome(1, ocupacao=SENT))
+    assert s.finalize(OutputRun(True)).status is OutputStatus.COMMITTED
+    st = tmp_path / "estado" / "bio.xlsx-output.json"
+    doc = json.loads(st.read_text(encoding="utf-8"))
+    doc["version"], doc["rows"] = "1.0.0", {"tx-00000000000000000001": list(prepare_row(SCHEMA, row(1, ocupacao=SENT)))}
+    del doc["committed_transactions"]
+    st.write_text(json.dumps(doc), encoding="utf-8")  # como a 0.3.0 inicial gravava
+    s2 = sink(tmp_path)
+    assert s2.state == "COMMITTED" and SENT not in st.read_text(encoding="utf-8")
+    assert s2.finalize(OutputRun(True)).detail == "already_committed"

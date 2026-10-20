@@ -62,7 +62,8 @@ __all__ = [
 ]
 
 STATE_SCHEMA = "nekkora-rpa/xlsx-output"
-STATE_VERSION = "1.0.0"
+STATE_VERSION = "1.1.0"  # 1.1.0: depois do COMMITTED só hash, contagem e transações (sem valores)
+_STATE_READABLE = ("1.0.0", STATE_VERSION)
 MAX_ROWS = 100_000
 MAX_COLUMNS = 100
 MAX_CELL = 32_000  # o Excel aceita 32.767 caracteres por célula
@@ -423,6 +424,7 @@ class XlsxResultSink:
         self._state = "OPEN"
         self._committed_sha: str | None = None
         self._pending_sha: str | None = None
+        self._committed_tx: list[str] = []
         self._load()
 
     # ---------------------------------------------------------------- estado persistido
@@ -445,7 +447,7 @@ class XlsxResultSink:
         if (
             not isinstance(doc, dict)
             or doc.get("schema") != STATE_SCHEMA
-            or doc.get("version") != STATE_VERSION
+            or doc.get("version") not in _STATE_READABLE
             or doc.get("schema_revision") != self.schema.revision()
             or doc.get("target") != self.path.name
         ):
@@ -460,6 +462,10 @@ class XlsxResultSink:
                 raise XlsxOutputError("state_unreadable")
             self._rows[tx] = [str(v) for v in values]
         self._blocked = {str(k): str(v) for k, v in blocked.items()}
+        committed = doc.get("committed_transactions", [])
+        if not isinstance(committed, list) or not all(isinstance(t, str) and is_token(t) for t in committed):
+            raise XlsxOutputError("state_unreadable")
+        self._committed_tx = list(committed)
         self._state = str(doc.get("state", "OPEN"))
         self._committed_sha = doc.get("committed_sha256")
         self._pending_sha = doc.get("pending_sha256")
@@ -467,10 +473,19 @@ class XlsxResultSink:
             # consolidação interrompida entre a conferência e o fim: o hash decide se o arquivo final é o pretendido
             if self._pending_sha and self.path.exists() and _sha256(self.path) == self._pending_sha:
                 self._state, self._committed_sha = "COMMITTED", self._pending_sha
+                self._forget_values()
             else:
                 self._state = "OPEN"
             self._pending_sha = None
             self._save()
+        elif self._state == "COMMITTED" and self._rows:
+            self._forget_values()  # estado 1.0.0 gravado: os valores saem na primeira leitura
+            self._save()
+
+    def _forget_values(self) -> None:
+        """Depois da planilha gravada e conferida, os valores ficam SÓ nela: o estado guarda as transações gravadas."""
+        self._committed_tx = list(dict.fromkeys([*self._committed_tx, *self._rows]))
+        self._rows = {}
 
     def _save(self) -> None:
         doc = {
@@ -481,6 +496,7 @@ class XlsxResultSink:
             "state": self._state,
             "rows": self._rows,
             "blocked": self._blocked,
+            "committed_transactions": self._committed_tx,
             "committed_sha256": self._committed_sha,
             "pending_sha256": self._pending_sha,
         }
@@ -490,6 +506,12 @@ class XlsxResultSink:
     # ---------------------------------------------------------------- ResultSink
     def deliver(self, item: TransactionItem, outcome: TransactionOutcome) -> None:
         tx = outcome.transaction_id
+        if self._state == "COMMITTED" and not self._rows:
+            # planilha já gravada e valores esquecidos: a retomada pode repetir uma transação gravada (nada muda);
+            # transação NOVA não reabre a saída (reescreveria sem as linhas anteriores) — é outra execução
+            if tx in self._committed_tx and outcome.status is TransactionStatus.SUCCEEDED:
+                return
+            raise SinkRejected("output_committed")
         if outcome.status is not TransactionStatus.SUCCEEDED:
             if tx in self._rows:
                 raise SinkRejected("already_staged")
@@ -536,6 +558,11 @@ class XlsxResultSink:
         return OutputReport(OutputStatus.WITHHELD, len(self._rows), code)
 
     def _finalize(self, run: OutputRun) -> OutputReport:
+        if self._state == "COMMITTED" and not self._rows:
+            # valores já esquecidos: só se reconhece a planilha gravada; nunca se regrava sem as linhas
+            if self._committed_sha and self.path.exists() and _sha256(self.path) == self._committed_sha:
+                return OutputReport(OutputStatus.COMMITTED, len(self._committed_tx), "already_committed")
+            return OutputReport(OutputStatus.FAILED, 0, "committed_output_changed")
         for tx, status in run.statuses:
             if status is not TransactionStatus.SUCCEEDED and tx not in self._rows:
                 self._blocked.setdefault(tx, status.value)
@@ -563,5 +590,6 @@ class XlsxResultSink:
 
         sha = _commit(self.path, self.schema, rows, self.overwrite, self._committed_sha, pending)
         self._state, self._committed_sha, self._pending_sha = "COMMITTED", sha, None
+        self._forget_values()
         self._save()
         return OutputReport(OutputStatus.COMMITTED, len(rows))

@@ -51,8 +51,12 @@ Requer o extra `excel` (openpyxl). Contrato `nekkora-rpa/xlsx-output` 1.0.0.
     `OPEN → COMMITTING → COMMITTED | WITHHELD | FAILED`. O hash pretendido é gravado ANTES da troca: uma queda entre a
     conferência e o fim é reconciliada na retomada (arquivo com o hash → `COMMITTED`; senão regrava).
   - Retomada: linhas já preparadas são reaproveitadas; reprocessar não duplica (chave por `transaction_id` e por campo).
-- **Privacidade**: nenhum valor de célula em eventos ou erros (códigos-token). O estado e a planilha SÃO dados de negócio
-  e ficam só nos caminhos de quem configura o processo.
+  - Depois do `COMMITTED` (estado 1.1.0) os valores ficam **só na planilha**: o estado guarda o hash, a contagem e as
+    transações gravadas. Repetir uma transação gravada não muda nada; transação NOVA nesse estado → `SinkRejected
+    ("output_committed")` (não reabre a saída, que seria regravada sem as linhas anteriores); planilha alterada por fora
+    → `FAILED/committed_output_changed`, sem regravar. Estado 1.0.0 com valores é lido e os valores são esquecidos.
+- **Privacidade**: nenhum valor de célula em eventos ou erros (códigos-token). Antes do commit o estado guarda as linhas
+  preparadas (necessárias para retomar); a planilha É dado de negócio e fica só no caminho de quem configura o processo.
 
 ## 4. Consolidação no engine
 
@@ -68,3 +72,11 @@ gravada → `COMPLETED_WITH_FAILURES`. A consolidação nunca derruba o engine.
 oculta no cabeçalho fixo; fichas com quadro por cabeçalho de linha (`th` → `td`), listas, campo ausente, cabeçalho
 repetido, Unicode e um valor com cara de fórmula. `tests/integration/test_leitura.py` (navegador real),
 `tests/unit/test_xlsx.py`, `tests/unit/test_text.py`; mutações M22–M30 em `tools/controle_negativo.py`.
+
+## 6. Correções da homologação real (E2E-002)
+
+- **Nó desanexado durante a verificação de identidade** (componente recriado ao receber texto, ex.: busca com sugestões)
+  agora é `TARGET_DETACHED` — transitório, repetido pela política de repetição do processo — e não
+  `TARGET_IDENTITY_MISMATCH`. Nada é feito no nó desanexado; a ação resolve de novo e age uma vez só.
+- **Estado do `XlsxResultSink` sem valores depois do commit** (ver §3).
+
