@@ -1,0 +1,149 @@
+# Publicação do nekkora-rpa por Trusted Publishing (OIDC) — NEKKORA-PACKAGING-001.
+#
+# NUNCA dispara sozinho: só por "Run workflow" (workflow_dispatch) a partir de uma TAG v<versão>, e cada destino exige a
+# aprovação humana do GitHub Environment correspondente (testpypi / pypi). Nenhum token de longa duração: o PyPI/TestPyPI
+# confia na identidade deste repositório + este arquivo + o environment (configurados pela conta titular).
+#
+# Guardas (falham FECHADO): versão da tag = _version.py; classifier "Private :: Do Not Upload" ausente; licença aprovada
+# pela titular (variável NEKKORA_LICENCA_APROVADA = versão aprovada); versão ainda não publicada no destino; artefatos
+# construídos e verificados ANTES do job de upload; id-token: write só nos jobs de upload.
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      destino:
+        description: "Índice de destino"
+        required: true
+        type: choice
+        options: [testpypi, pypi]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  guardas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      versao: ${{ steps.v.outputs.versao }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+      - id: v
+        name: Guardas da publicação
+        env:
+          DESTINO: ${{ inputs.destino }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          LICENCA_APROVADA: ${{ vars.NEKKORA_LICENCA_APROVADA }}
+        run: python tools/guardas_publicacao.py
+
+  construir:
+    needs: guardas
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Ferramentas de construção travadas por hash
+        run: python -m pip install --require-hashes --only-binary=:all: -r constraints/build.lock
+      - name: Construir e verificar (conteúdo, metadados, instalação limpa do wheel e do sdist)
+        run: python tools/verificar_distribuicao.py --sem-isolamento --saida verificacao
+      - name: twine check
+        run: |
+          python -m pip install "twine==7.0.0"
+          python -m twine check --strict verificacao/dist/*
+      - name: SHA-256
+        run: cd verificacao/dist && sha256sum * | tee ../SHA256SUMS
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: dist
+          path: |
+            verificacao/dist/
+            verificacao/SHA256SUMS
+            verificacao/verificacao-distribuicao.json
+          retention-days: 90
+
+  publicar-testpypi:
+    if: inputs.destino == 'testpypi'
+    needs: [guardas, construir]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/nekkora-rpa/${{ needs.guardas.outputs.versao }}/
+    permissions:
+      id-token: write  # SÓ aqui: Trusted Publishing
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: dist
+          path: artefatos
+      - name: Conferir SHA-256 dos artefatos verificados
+        run: cd artefatos/dist && sha256sum -c ../SHA256SUMS
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: artefatos/dist/
+
+  publicar-pypi:
+    if: inputs.destino == 'pypi'
+    needs: [guardas, construir]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: pypi
+      url: https://pypi.org/project/nekkora-rpa/${{ needs.guardas.outputs.versao }}/
+    permissions:
+      id-token: write  # SÓ aqui: Trusted Publishing
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: dist
+          path: artefatos
+      - name: Conferir SHA-256 dos artefatos verificados
+        run: cd artefatos/dist && sha256sum -c ../SHA256SUMS
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
+        with:
+          packages-dir: artefatos/dist/
+
+  verificar-instalacao:
+    needs: [guardas, construir, publicar-testpypi, publicar-pypi]
+    if: always() && (needs.publicar-testpypi.result == 'success' || needs.publicar-pypi.result == 'success')
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: dist
+          path: artefatos
+      - name: Instalar DO ÍNDICE numa venv limpa (sem checkout no caminho, sem token) e conferir o hash
+        shell: bash
+        env:
+          DESTINO: ${{ inputs.destino }}
+          VERSAO: ${{ needs.guardas.outputs.versao }}
+        run: python tools/verificar_indice.py --destino "$DESTINO" --versao "$VERSAO" --sha256sums artefatos/SHA256SUMS
