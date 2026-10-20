@@ -2,7 +2,8 @@
 // original some e o novo não tem id) — como bibliotecas de interface fazem — e uma cópia oculta no cabeçalho fixo.
 (() => {
   const FICHAS = {'ana exemplo': 'ficha-ana.html', 'bruno modelo': 'ficha-bruno.html', 'carla teste': 'ficha-carla.html',
-    'davi amostra': 'ficha-davi.html', 'eva formula': 'ficha-eva.html'};
+    'davi amostra': 'ficha-davi.html', 'eva formula': 'ficha-eva.html',
+    'fabio ficticio': 'ficha-fabio.html', 'gina inventada': 'ficha-gina.html'};
   const form = document.getElementById('buscaform');
   const montar = () => {
     const velho = document.getElementById('campo-busca');
