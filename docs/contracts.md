@@ -34,7 +34,7 @@ Mudança incompatível = nova versão do contrato; nunca ajuste silencioso.
 - Chave: `^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$`, começando por `<system>.`. Duplicada (inclusive chave JSON) → recusa.
 - Estratégias: `css`, `xpath` (`expression`), `id`, `name`, `test_id` (`value`, atributo `data-testid`), `role`
   (`role` + `name` exato). Não equivalentes entre si: cada uma é um candidato.
-- `expected`: `tag` obrigatória; `type` (tipo de `input`/`button`); `role`; `name` (nome acessível exato; exige `role`).
+- `expected`: `tag` obrigatória; `type` (tipo de `input`/`button`); `role`; `name` (nome acessível exato, o EXPOSTO — sem descendentes `aria-hidden`; só glifos de fonte de ícones e espaços nas pontas são ignorados; exige `role`).
 - `alternatives` (até 5) só com `expected.name` (identidade forte). Candidatos repetidos → recusa.
 - `variants`: substituição explícita por ambiente (todas são validadas, mesmo as não usadas).
 - Leitura estrita: campo desconhecido, versão diferente, tipo errado → `INVALID_CONFIGURATION` com detalhe enumerado.

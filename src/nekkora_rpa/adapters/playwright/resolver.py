@@ -5,7 +5,8 @@ Regras (fail-closed):
   (nunca "o primeiro");
 - candidatos que acham exatamente um elemento têm de apontar para o MESMO nó; se discordam → ``TARGET_AMBIGUOUS``;
 - o nó achado tem de provar a identidade esperada (tag, tipo, papel e nome acessível exato pelo motor ARIA do
-  Playwright, documento principal, fora de shadow root); senão → ``TARGET_IDENTITY_MISMATCH``;
+  Playwright — só glifos de fonte de ícones nas pontas são ignorados —, documento principal, fora de shadow root);
+  senão → ``TARGET_IDENTITY_MISMATCH``;
 - nenhum candidato acha nada → espera até o prazo → ``TARGET_NOT_FOUND``.
 O resultado é um ``ElementHandle`` preso ao nó verificado: a ação age sobre ESTE nó, não sobre o que o seletor
 casar mais tarde (troca de DOM entre verificação e ação vira ``TARGET_DETACHED``, nunca clique em outro elemento).
@@ -13,6 +14,7 @@ casar mais tarde (troca de DOM entre verificação e ação vira ``TARGET_DETACH
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from playwright.sync_api import ElementHandle, Locator, Page
@@ -54,6 +56,18 @@ class Resolution:
     """0 = preferido; n = n-ésimo alternativo."""
 
 
+# Glifo de fonte de ícones (área de uso privado do Unicode, ex.: Font Awesome via ::before) entra no nome acessível
+# calculado pelo Playwright, mas não é texto que uma pessoa lê nem que o Studio grava.
+_ICON_GLYPHS = r"[\s\ue000-\uf8ff]*"
+
+
+def accessible_name(name: str | None) -> re.Pattern[str] | None:
+    """Nome acessível exato, tolerando só glifos de ícone e espaços nas PONTAS (o texto em si continua exato)."""
+    if name is None:
+        return None
+    return re.compile("^" + _ICON_GLYPHS + re.escape(name) + _ICON_GLYPHS + "$")
+
+
 def _css_str(v: str) -> str:
     return '"' + v.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
@@ -76,7 +90,7 @@ def build_locator(page: Page, ref: Ref) -> Locator:
             " and count(input|textarea|select)=1]/*[self::input or self::textarea or self::select]"
         )
         return page.get_by_label(text, exact=True).or_(page.locator(sibling))
-    return page.get_by_role(ref.role, name=ref.name, exact=True)  # type: ignore[arg-type]
+    return page.get_by_role(ref.role, name=accessible_name(ref.name))  # type: ignore[arg-type]
 
 
 def _xpath_str(v: str) -> str:
@@ -111,9 +125,14 @@ def identity_mismatch(page: Page, handle: ElementHandle, expected: Expected) -> 
         if not by_role.evaluate_all("(els, h) => els.includes(h)", handle):
             return "role"
         if expected.name is not None:
-            by_name = page.get_by_role(expected.role, name=expected.name, exact=True, include_hidden=True)  # type: ignore[arg-type]
+            # nome EXPOSTO primeiro (o do Chrome e o gravado pelo Studio: sem descendentes aria-hidden, ex.: a seta de
+            # "Next <span aria-hidden>→</span>"); com include_hidden=True o Playwright os inclui — só para alvo oculto
+            name = accessible_name(expected.name)
+            by_name = page.get_by_role(expected.role, name=name)  # type: ignore[arg-type]
             if not by_name.evaluate_all("(els, h) => els.includes(h)", handle):
-                return "name"
+                by_hidden = page.get_by_role(expected.role, name=name, include_hidden=True)  # type: ignore[arg-type]
+                if not by_hidden.evaluate_all("(els, h) => els.includes(h)", handle):
+                    return "name"
     return None
 
 
