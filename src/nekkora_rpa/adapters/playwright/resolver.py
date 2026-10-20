@@ -6,7 +6,8 @@ Regras (fail-closed):
 - candidatos que acham exatamente um elemento têm de apontar para o MESMO nó; se discordam → ``TARGET_AMBIGUOUS``;
 - o nó achado tem de provar a identidade esperada (tag, tipo, papel e nome acessível exato pelo motor ARIA do
   Playwright — só glifos de fonte de ícones nas pontas são ignorados —, documento principal, fora de shadow root);
-  senão → ``TARGET_IDENTITY_MISMATCH``;
+  senão → ``TARGET_IDENTITY_MISMATCH`` (nó que sai do documento durante a verificação → ``TARGET_DETACHED``,
+  transitório);
 - nenhum candidato acha nada → espera até o prazo → ``TARGET_NOT_FOUND``.
 O resultado é um ``ElementHandle`` preso ao nó verificado: a ação age sobre ESTE nó, não sobre o que o seletor
 casar mais tarde (troca de DOM entre verificação e ação vira ``TARGET_DETACHED``, nunca clique em outro elemento).
@@ -20,7 +21,7 @@ from dataclasses import dataclass
 from playwright.sync_api import ElementHandle, Locator, Page
 from playwright.sync_api import Error as PlaywrightError
 
-from ...errors.exceptions import PageClosed, TargetAmbiguous, TargetIdentityMismatch, TargetNotFound
+from ...errors.exceptions import PageClosed, TargetAmbiguous, TargetDetached, TargetIdentityMismatch, TargetNotFound
 from ...resilience.timing import CancelToken, Clock, Deadline
 from ...selectors.schema import Expected, Strategy, Target
 from ...selectors.schema import Locator as Ref
@@ -193,6 +194,11 @@ class Resolver:
             raise
         for _, _, h in found[1:]:
             _dispose(h)
+        if mismatch == "detached":
+            # o nó saiu do documento DURANTE a verificação (componente recriado): troca de DOM, não outra identidade —
+            # transitório como a troca entre verificação e ação; nada foi feito no nó (NEKKORA-E2E-002)
+            _dispose(first_h)
+            raise TargetDetached(key=target.key, detail="detached_during_check")
         if mismatch is not None:
             self.rejections.append((first_i, mismatch))
             _dispose(first_h)
