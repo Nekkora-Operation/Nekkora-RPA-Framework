@@ -4,7 +4,7 @@
 
 | Item | Estado |
 |---|---|
-| Wheel + sdist construídos e verificados (conteúdo, metadados, instalação limpa de cada um, `twine check --strict`) | **IMPLEMENTED_LOCAL** — local e no CI de cada PR (Windows + Linux) |
+| Wheel + sdist construídos e verificados (conteúdo, metadados, instalação limpa de cada um, `twine check --strict`) | **IMPLEMENTED_LOCAL** — local e no CI de cada PR (Windows + Linux); 1ª execução verde: run `39489164509` (commit `e402d50`, 4 jobs) |
 | TestPyPI | **BLOQUEADO — aguardando a titular** (P1, P2, P3) |
 | PyPI | **BLOQUEADO — aguardando a titular** (P1, P2, P3) |
 
