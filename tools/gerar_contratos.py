@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from nekkora_rpa.core.contracts import DeliveryStatus, TransactionStatus
+from nekkora_rpa.core.contracts import DeliveryStatus, OutputStatus, TransactionStatus
 from nekkora_rpa.core.engine import RunStatus
 from nekkora_rpa.errors import ErrorCode
 from nekkora_rpa.observability.events import EventCode, Phase
@@ -35,6 +35,9 @@ ACTIONS = [
     "download",
     "mark",
     "read_text_matching",
+    "press",
+    "read_items",
+    "current_address",
 ]
 
 
@@ -155,14 +158,14 @@ def schemas() -> dict[str, dict[str, Any]]:
     }
     events = {
         "$schema": DRAFT,
-        "$id": "nekkora-rpa/events/1.1.0",
+        "$id": "nekkora-rpa/events/1.2.0",
         "title": "Evento de execução (uma linha JSON)",
         "type": "object",
         "additionalProperties": False,
         "required": ["schema", "version", "timestamp_utc", "execution_id", "event_code", "framework_version"],
         "properties": {
             "schema": {"const": "nekkora-rpa/events"},
-            "version": {"const": "1.1.0"},
+            "version": {"const": "1.2.0"},
             "timestamp_utc": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"},
             "execution_id": tok(),
             "event_code": enum(EventCode),
@@ -245,7 +248,7 @@ def schemas() -> dict[str, dict[str, Any]]:
     }
     summary = {
         "$schema": DRAFT,
-        "$id": "nekkora-rpa/run-summary/1.1.0",
+        "$id": "nekkora-rpa/run-summary/1.2.0",
         "title": "Resumo da execução",
         "type": "object",
         "additionalProperties": False,
@@ -260,10 +263,11 @@ def schemas() -> dict[str, dict[str, Any]]:
             "cleanup_ok",
             "counts",
             "transactions",
+            "output",
         ],
         "properties": {
             "schema": {"const": "nekkora-rpa/run-summary"},
-            "version": {"const": "1.1.0"},
+            "version": {"const": "1.2.0"},
             "execution_id": tok(),
             "framework_version": tok(),
             "status": enum(RunStatus),
@@ -291,14 +295,26 @@ def schemas() -> dict[str, dict[str, Any]]:
                     },
                 },
             },
+            "output": nullable(
+                {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["status", "rows", "detail"],
+                    "properties": {
+                        "status": enum(OutputStatus),
+                        "rows": {"type": "integer", "minimum": 0},
+                        "detail": nullable(tok()),
+                    },
+                }
+            ),
         },
     }
     return {
         "selectors-1.1.0.schema.json": selectors,
-        "events-1.1.0.schema.json": events,
+        "events-1.2.0.schema.json": events,
         "checkpoint-1.1.0.schema.json": checkpoint,
         "result-1.1.0.schema.json": result,
-        "run-summary-1.1.0.schema.json": summary,
+        "run-summary-1.2.0.schema.json": summary,
     }
 
 

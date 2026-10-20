@@ -158,6 +158,46 @@ class ResultSink(Protocol):
         ...
 
 
+class OutputStatus(StrEnum):
+    """Desfecho da CONSOLIDAÇÃO de um destino que só materializa a saída no fim (ex.: planilha)."""
+
+    COMMITTED = "COMMITTED"
+    """A saída foi gravada e conferida (ou já estava gravada com o mesmo conteúdo)."""
+    WITHHELD = "WITHHELD"
+    """A saída NÃO foi gravada de propósito (execução incompleta, transações sem sucesso...): nada parcial."""
+    FAILED = "FAILED"
+    """A gravação falhou; o arquivo final anterior (se havia) ficou intacto."""
+
+
+@dataclass(frozen=True)
+class OutputReport:
+    status: OutputStatus
+    rows: int
+    detail: str | None = None
+    """Token do motivo (``incomplete_run``, ``locked``...), nunca conteúdo."""
+
+    def __post_init__(self) -> None:
+        if self.detail is not None:
+            require_token(self.detail, "detail")
+
+
+@dataclass(frozen=True)
+class OutputRun:
+    """O que o engine informa ao destino na consolidação: o desfecho de cada transação DESTA execução e se o lote
+    chegou ao fim (sem parada, cancelamento ou falha de INIT)."""
+
+    complete: bool
+    statuses: tuple[tuple[str, TransactionStatus], ...] = ()
+
+
+class FinalizingResultSink(ResultSink, Protocol):
+    """Destino com CONSOLIDAÇÃO no fim (0.3.0): ``deliver`` prepara cada transação; ``finalize`` materializa a saída
+    uma única vez, de forma atômica e reconciliável. O engine chama ``finalize`` na fase TRANSFER_DATA_OUT, depois do
+    lote e antes do END. Nunca deve propagar exceção: falhas viram ``OutputReport(FAILED, ...)``."""
+
+    def finalize(self, run: OutputRun) -> OutputReport: ...
+
+
 class InMemoryResultSink:
     idempotent = True
 

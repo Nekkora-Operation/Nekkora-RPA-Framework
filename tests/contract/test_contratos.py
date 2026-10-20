@@ -116,12 +116,12 @@ def test_artefatos_reais_seguem_os_esquemas(tmp_path: Path):
     lines = (tmp_path / "run" / "events.jsonl").read_text(encoding="utf-8").splitlines()
     assert len(lines) > 20
     for line in lines:
-        validate(json.loads(line), "events-1.1.0.schema.json")
+        validate(json.loads(line), "events-1.2.0.schema.json")
     validate(
         json.loads((tmp_path / "run" / "checkpoint.json").read_text(encoding="utf-8")), "checkpoint-1.1.0.schema.json"
     )
     validate(
-        json.loads((tmp_path / "run" / "summary.json").read_text(encoding="utf-8")), "run-summary-1.1.0.schema.json"
+        json.loads((tmp_path / "run" / "summary.json").read_text(encoding="utf-8")), "run-summary-1.2.0.schema.json"
     )
     files = list((tmp_path / "resultados").glob("*.json"))
     assert len(files) == 3

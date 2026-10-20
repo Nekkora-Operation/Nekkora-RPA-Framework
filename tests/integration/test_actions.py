@@ -20,6 +20,7 @@ from nekkora_rpa.errors import (
     OutcomeUnknown,
     PageClosed,
     SecurityPolicyBlocked,
+    TargetDetached,
     TargetNotReady,
     TransientTechnicalFailure,
 )
@@ -378,3 +379,29 @@ def test_causa_raiz_roteamento_nao_ve_redirecionamento(clean_lab):  # type: igno
         page.goto(clean_lab.url + "/redir/externo")
         b.close()
     assert clean_lab.oracle()["external_hits"] == 1
+
+
+def test_no_desconectado_durante_a_verificacao_e_transitorio_e_a_acao_repete(harness, monkeypatch):  # type: ignore[no-untyped-def]
+    """NEKKORA-E2E-002: componente recriado DURANTE a verificação de identidade (ex.: busca com sugestões que troca o
+    campo) é TARGET_DETACHED, transitório — não TARGET_IDENTITY_MISMATCH; a ação resolve de novo e age uma vez só."""
+    from nekkora_rpa.adapters.playwright import resolver as resolver_mod
+
+    real = resolver_mod.identity_mismatch
+    calls = {"n": 0}
+
+    def once_detached(page, handle, expected):  # type: ignore[no-untyped-def]
+        calls["n"] += 1
+        return "detached" if calls["n"] == 1 else real(page, handle, expected)
+
+    monkeypatch.setattr(resolver_mod, "identity_mismatch", once_detached)
+    harness.open_adv()
+    with pytest.raises(TargetDetached):
+        Resolver(harness.ctx.clock, harness.ctx.cancel).resolve(
+            harness.page, harness.actions.registry.get("adv.salvar"), Deadline.after_ms(2_000, harness.ctx.clock)
+        )
+    calls["n"] = 0
+    _retry(harness)  # com a política de repetição do processo, a troca de DOM é repetida (e não rejeitada)
+    harness.actions.click("adv.salvar", step_id="S-01", idempotent=True)
+    assert harness.lab_counter("salvar") == 1
+    codes = [e.event_code for e in harness.events.events]
+    assert "TARGET_REJECTED" not in codes and "RETRY_SCHEDULED" in codes
