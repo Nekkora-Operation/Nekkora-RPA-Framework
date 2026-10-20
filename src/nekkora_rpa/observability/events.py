@@ -14,7 +14,7 @@ from enum import StrEnum
 from .safety import is_token
 
 SCHEMA = "nekkora-rpa/events"
-SCHEMA_VERSION = "1.1.0"  # 1.1.0 (aditiva): ações download/mark, códigos TABULAR_INVALID/DOWNLOAD_INVALID
+SCHEMA_VERSION = "1.2.0"  # 1.2.0 (aditiva): OUTPUT_*, ações press/read_items/current_address; 1.1.0: download/mark
 
 
 class Phase(StrEnum):
@@ -56,6 +56,9 @@ class EventCode(StrEnum):
     CLEANUP_COMPLETED = "CLEANUP_COMPLETED"
     CLEANUP_FAILED = "CLEANUP_FAILED"
     CANCELLED = "CANCELLED"
+    OUTPUT_COMMITTED = "OUTPUT_COMMITTED"
+    OUTPUT_WITHHELD = "OUTPUT_WITHHELD"
+    OUTPUT_FAILED = "OUTPUT_FAILED"
 
 
 @dataclass(frozen=True)

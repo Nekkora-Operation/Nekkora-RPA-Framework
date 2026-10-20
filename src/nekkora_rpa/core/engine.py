@@ -12,6 +12,9 @@ Regras centrais:
 - Segurança, configuração, cancelamento, checkpoint e entrada indisponível param o lote; falhas técnicas seguidas
   acima do limite também. Não existe "continuar em qualquer erro".
 - END roda sempre que algo foi aberto, inclusive depois de falha no INIT, e nunca substitui a causa original.
+- 0.3.0: destino com consolidação (``FinalizingResultSink``, ex.: planilha) é consolidado UMA vez depois do lote, na
+  fase TRANSFER_DATA_OUT e antes do END, com o desfecho de cada transação e se o lote chegou ao fim; o resultado vai
+  para os eventos ``OUTPUT_*`` e para ``summary.json`` (``output``). A consolidação nunca derruba o engine.
 """
 
 from __future__ import annotations
@@ -47,6 +50,9 @@ from .contracts import (
     ALLOWED_TRANSITIONS,
     DeliveryStatus,
     InputProvider,
+    OutputReport,
+    OutputRun,
+    OutputStatus,
     ProcessResult,
     Reconciliation,
     ReconciliationVerdict,
@@ -61,6 +67,9 @@ from .contracts import (
 
 _STOP_CATEGORIES = frozenset({ErrorCategory.SECURITY, ErrorCategory.CONFIGURATION, ErrorCategory.CANCELLED})
 _FAILURES = frozenset({TransactionStatus.FAILED_TECHNICAL, TransactionStatus.OUTCOME_UNKNOWN})
+
+
+SUMMARY_VERSION = "1.2.0"  # 1.2.0 (aditiva): "output" — consolidação do destino (planilha)
 
 
 class RunStatus(StrEnum):
@@ -90,6 +99,7 @@ class RunSummary:
     stop_detail: str | None = None
     transactions: list[TransactionReport] = field(default_factory=list)
     cleanup_ok: bool = True
+    output: OutputReport | None = None
 
     def count(self, status: TransactionStatus) -> int:
         return sum(1 for t in self.transactions if t.status is status)
@@ -97,7 +107,7 @@ class RunSummary:
     def to_dict(self) -> dict[str, object]:
         return {
             "schema": "nekkora-rpa/run-summary",
-            "version": "1.1.0",
+            "version": SUMMARY_VERSION,
             "execution_id": self.execution_id,
             "framework_version": __version__,
             "status": self.status.value,
@@ -116,6 +126,9 @@ class RunSummary:
                 }
                 for t in self.transactions
             ],
+            "output": None
+            if self.output is None
+            else {"status": self.output.status.value, "rows": self.output.rows, "detail": self.output.detail},
         }
 
 
@@ -211,6 +224,7 @@ class Engine:
                 except _Stop as s:
                     stop = s.error
         finally:
+            self._consolidate(init_error is None and stop is None)
             self._end(rt, self._process_init_started)
         self._finish(init_error, stop)
         return self.summary
@@ -516,6 +530,31 @@ class Engine:
             raise _Stop(err) from None
         self.ctx.emit(EventCode.CHECKPOINT_SAVED, transaction_id=tx, outcome=record.status.value)
 
+    # ------------------------------------------------------------------ consolidação do destino
+    def _consolidate(self, complete: bool) -> None:
+        finalize = getattr(self.sink, "finalize", None)
+        if not callable(finalize):
+            return
+        ctx = self.ctx
+        self._phase(Phase.TRANSFER_DATA_OUT)
+        run = OutputRun(complete, tuple((t.transaction_id, t.status) for t in self.summary.transactions))
+        try:
+            report = finalize(run)
+            if not isinstance(report, OutputReport):
+                report = OutputReport(OutputStatus.FAILED, 0, "invalid_report")
+        except Exception as exc:  # noqa: BLE001 — destino mal-comportado: falha registrada, engine segue para o END
+            report = OutputReport(OutputStatus.FAILED, 0, "unexpected")
+            ctx.emit(EventCode.OUTPUT_FAILED, detail="unexpected", cause_type=_type_name(exc))
+            self.summary.output = report
+            return
+        self.summary.output = report
+        code = {
+            OutputStatus.COMMITTED: EventCode.OUTPUT_COMMITTED,
+            OutputStatus.WITHHELD: EventCode.OUTPUT_WITHHELD,
+            OutputStatus.FAILED: EventCode.OUTPUT_FAILED,
+        }[report.status]
+        ctx.emit(code, outcome=report.status.value, detail=report.detail, count=report.rows)
+
     # ------------------------------------------------------------------ END
     def _end(self, rt: Runtime, process_init_called: bool) -> None:
         ctx = self.ctx
@@ -544,6 +583,8 @@ class Engine:
             s.stop_code, s.stop_detail = stop.code.value, stop.detail
         elif any(t.status in _FAILURES or t.status is TransactionStatus.CANCELLED for t in s.transactions):
             s.status = RunStatus.COMPLETED_WITH_FAILURES
+        elif s.output is not None and s.output.status is not OutputStatus.COMMITTED:
+            s.status = RunStatus.COMPLETED_WITH_FAILURES  # todas as transações ok, mas a saída não foi gravada
         self.ctx.phase = Phase.END
         self.ctx.emit(
             EventCode.ENGINE_COMPLETED,

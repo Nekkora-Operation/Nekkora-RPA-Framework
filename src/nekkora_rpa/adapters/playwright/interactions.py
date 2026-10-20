@@ -84,3 +84,28 @@ def read_value(handle: ElementHandle, *, timeout_ms: int) -> str:
     if tag in ("input", "textarea", "select"):
         return handle.input_value(timeout=timeout_ms)
     return handle.inner_text()
+
+
+def ensure_ready(handle: ElementHandle, *, timeout_ms: int) -> None:
+    """Pré-despacho da tecla: o nó precisa estar anexado, visível e habilitado (sem agir). Senão → ``TimeoutError``
+    do Playwright, classificado por ``not_performed`` pelo estado observado."""
+    handle.wait_for_element_state("visible", timeout=timeout_ms)
+    handle.wait_for_element_state("enabled", timeout=timeout_ms)
+
+
+def press(handle: ElementHandle, key_name: str, *, timeout_ms: int) -> None:
+    handle.press(key_name, timeout=timeout_ms)
+
+
+def read_items(handle: ElementHandle, *, timeout_ms: int) -> list[str]:
+    tag = handle.evaluate("e => e.tagName.toLowerCase()")
+    if tag in ("input", "textarea", "select"):
+        return [handle.input_value(timeout=timeout_ms)]
+    items: list[str] = handle.evaluate(
+        """e => {
+            const shown = x => !!(x.offsetWidth || x.offsetHeight || x.getClientRects().length);
+            const lis = [...e.querySelectorAll('li')].filter(li => shown(li) && !li.querySelector('li'));
+            return lis.length ? lis.map(li => li.innerText) : [e.innerText];
+        }"""
+    )
+    return [str(i) for i in items]

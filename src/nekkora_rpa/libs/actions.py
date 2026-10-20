@@ -1,5 +1,5 @@
-"""API pública de ações: ``click``, ``double_click``, ``fill``, ``wait_visible``, ``wait_hidden``, ``exists``,
-``is_visible``, ``read_text``, ``navigate`` e ``expect_new_page``.
+"""API pública de ações: ``click``, ``double_click``, ``press``, ``fill``, ``wait_visible``, ``wait_hidden``,
+``exists``, ``is_visible``, ``read_text``, ``read_items``, ``current_address``, ``navigate`` e ``expect_new_page``.
 
 Toda ação que depende de elemento recebe a CHAVE do registro (nunca um seletor) e, opcionalmente, ``step_id`` para
 rastreabilidade. Cada chamada:
@@ -54,8 +54,10 @@ from ..resilience.timing import Deadline, check_timeout_ms
 from ..security.secrets import Secret
 from ..selectors.registry import SelectorRegistry
 from ..selectors.schema import Target
+from ..text import normalize_text
 
 T = TypeVar("T")
+_KEYS = frozenset({"Enter", "Tab", "Escape"})
 Postcondition = Callable[[], bool]
 WaitUntil = Literal["load", "domcontentloaded", "networkidle", "commit"]
 
@@ -334,6 +336,54 @@ class Actions:
 
         self._run(action, key, step_id, deadline, body, retry=self.retry)
 
+    def press(
+        self,
+        key: str,
+        key_name: str = "Enter",
+        *,
+        timeout_ms: int | None = None,
+        step_id: str | None = None,
+        postcondition: Postcondition | None = None,
+        idempotent: bool = False,
+    ) -> None:
+        """Tecla sobre o alvo verificado (0.3.0) — o envio por teclado de um campo (ex.: Enter numa busca).
+
+        ``key_name`` ∈ {``Enter``, ``Tab``, ``Escape``}. Mesmo contrato de despacho do clique: antes da tecla o alvo
+        precisa estar visível e habilitado (senão nada é feito, ``TARGET_NOT_READY``); não idempotente por padrão
+        (falha depois do despacho → ``OUTCOME_UNKNOWN``); ``postcondition`` confirma o efeito até o prazo."""
+        if key_name not in _KEYS:
+            raise InvalidArgument(key=key, step_id=step_id, detail="key_name")
+        self._check_step(step_id)
+        target = self.registry.get(key)
+        if postcondition is not None and not callable(postcondition):
+            raise InvalidArgument(key=key, step_id=step_id, detail="postcondition")
+        deadline = self.ctx.action_deadline(self._timeout(timeout_ms, self.ctx.config.timeouts.action_ms))
+
+        def body(_: int) -> None:
+            page = self.page
+            self._require_origin(page, key, step_id)
+            handle = self._resolve(page, target, deadline, step_id)
+            assert handle is not None
+            try:
+                try:
+                    interactions.ensure_ready(handle, timeout_ms=_remaining(deadline, key, step_id))
+                except PlaywrightError as exc:
+                    raise interactions.not_performed(page, handle, exc, key, step_id) from None
+                self._require_origin(page, key, step_id)
+                remaining = _remaining(deadline, key, step_id)
+                if not idempotent:
+                    self.ctx.mark_side_effect()
+                try:
+                    interactions.press(handle, key_name, timeout_ms=remaining)
+                except PlaywrightError as exc:
+                    raise interactions.after_dispatch(page, handle, exc, key, step_id, idempotent) from None
+            finally:
+                _dispose(handle)
+            if postcondition is not None:
+                self._await_postcondition(postcondition, deadline, key, step_id, idempotent)
+
+        self._run("press", key, step_id, deadline, body, retry=self.retry)
+
     def _await_postcondition(
         self, check: Postcondition, deadline: Deadline, key: str, step_id: str | None, idempotent: bool
     ) -> None:
@@ -583,6 +633,42 @@ class Actions:
                 _dispose(handle)
 
         return self._run("read_text", key, step_id, deadline, body, retry=self.retry)
+
+    def read_items(self, key: str, *, timeout_ms: int | None = None, step_id: str | None = None) -> tuple[str, ...]:
+        """Lê o alvo verificado como ITENS (0.3.0): se ele exibe uma lista (``<li>`` visíveis, sem sublista), um item
+        por ``<li>``; senão um único item com o texto exibido (ou o valor, em campos). Cada item é normalizado
+        (``nekkora_rpa.text.normalize_text``) e itens vazios saem. Nada é registrado."""
+        self._check_step(step_id)
+        target = self.registry.get(key)
+        deadline = self.ctx.action_deadline(self._timeout(timeout_ms, self.ctx.config.timeouts.action_ms))
+
+        def body(_: int) -> tuple[str, ...]:
+            page = self.page
+            self._require_origin(page, key, step_id)
+            handle = self._resolve(page, target, deadline, step_id)
+            assert handle is not None
+            try:
+                raw = interactions.read_items(handle, timeout_ms=_remaining(deadline, key, step_id))
+            except PlaywrightError as exc:
+                raise interactions.not_performed(page, handle, exc, key, step_id) from None
+            finally:
+                _dispose(handle)
+            return tuple(i for i in (normalize_text(x) for x in raw) if i)
+
+        return self._run("read_items", key, step_id, deadline, body, retry=self.retry)
+
+    def current_address(self, *, step_id: str | None = None) -> str:
+        """Endereço da aba atual (0.3.0), conferido pela política de origens (fora dela → ``SECURITY_POLICY_BLOCKED``).
+        O endereço é do processo: nunca é registrado."""
+        self._check_step(step_id)
+        deadline = self.ctx.action_deadline(self._timeout(None, self.ctx.config.timeouts.action_ms))
+
+        def body(_: int) -> str:
+            page = self.page
+            self._require_origin(page, None, step_id)
+            return page.url
+
+        return self._run("current_address", None, step_id, deadline, body, retry=NO_RETRY)
 
     # ------------------------------------------------------------------ navegação
     def navigate(

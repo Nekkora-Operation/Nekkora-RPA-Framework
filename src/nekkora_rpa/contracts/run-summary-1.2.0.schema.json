@@ -1,0 +1,242 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nekkora-rpa/run-summary/1.2.0",
+  "title": "Resumo da execução",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "execution_id",
+    "framework_version",
+    "status",
+    "stop_code",
+    "stop_detail",
+    "cleanup_ok",
+    "counts",
+    "transactions",
+    "output"
+  ],
+  "properties": {
+    "schema": {
+      "const": "nekkora-rpa/run-summary"
+    },
+    "version": {
+      "const": "1.2.0"
+    },
+    "execution_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$"
+    },
+    "framework_version": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$"
+    },
+    "status": {
+      "enum": [
+        "COMPLETED",
+        "COMPLETED_WITH_FAILURES",
+        "STOPPED",
+        "INIT_FAILED",
+        "CANCELLED"
+      ]
+    },
+    "stop_code": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "enum": [
+            "TARGET_NOT_FOUND",
+            "TARGET_AMBIGUOUS",
+            "TARGET_IDENTITY_MISMATCH",
+            "TARGET_NOT_READY",
+            "TARGET_DETACHED",
+            "ACTION_TIMEOUT",
+            "NAVIGATION_FAILED",
+            "PAGE_CLOSED",
+            "TRANSIENT_TECHNICAL_FAILURE",
+            "UNEXPECTED_ERROR",
+            "BUSINESS_RULE_REJECTED",
+            "OUTCOME_UNKNOWN",
+            "SECURITY_POLICY_BLOCKED",
+            "INVALID_CONFIGURATION",
+            "INVALID_ARGUMENT",
+            "SECRET_UNAVAILABLE",
+            "CHECKPOINT_CORRUPTED",
+            "CHECKPOINT_WRITE_FAILED",
+            "INPUT_PROVIDER_FAILED",
+            "TRANSACTION_DEADLINE_EXCEEDED",
+            "TABULAR_INVALID",
+            "DOWNLOAD_INVALID",
+            "CANCELLED"
+          ]
+        }
+      ]
+    },
+    "stop_detail": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$"
+        }
+      ]
+    },
+    "cleanup_ok": {
+      "type": "boolean"
+    },
+    "counts": {
+      "type": "object",
+      "propertyNames": {
+        "enum": [
+          "PENDING",
+          "IN_PROGRESS",
+          "SUCCEEDED",
+          "BUSINESS_REJECTED",
+          "FAILED_TECHNICAL",
+          "OUTCOME_UNKNOWN",
+          "SKIPPED",
+          "CANCELLED"
+        ]
+      },
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 1
+      }
+    },
+    "transactions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "transaction_id",
+          "status",
+          "error_code",
+          "detail",
+          "attempts",
+          "delivery"
+        ],
+        "properties": {
+          "transaction_id": {
+            "type": "string",
+            "pattern": "^tx-[0-9a-f]{20}$"
+          },
+          "status": {
+            "enum": [
+              "PENDING",
+              "IN_PROGRESS",
+              "SUCCEEDED",
+              "BUSINESS_REJECTED",
+              "FAILED_TECHNICAL",
+              "OUTCOME_UNKNOWN",
+              "SKIPPED",
+              "CANCELLED"
+            ]
+          },
+          "error_code": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "enum": [
+                  "TARGET_NOT_FOUND",
+                  "TARGET_AMBIGUOUS",
+                  "TARGET_IDENTITY_MISMATCH",
+                  "TARGET_NOT_READY",
+                  "TARGET_DETACHED",
+                  "ACTION_TIMEOUT",
+                  "NAVIGATION_FAILED",
+                  "PAGE_CLOSED",
+                  "TRANSIENT_TECHNICAL_FAILURE",
+                  "UNEXPECTED_ERROR",
+                  "BUSINESS_RULE_REJECTED",
+                  "OUTCOME_UNKNOWN",
+                  "SECURITY_POLICY_BLOCKED",
+                  "INVALID_CONFIGURATION",
+                  "INVALID_ARGUMENT",
+                  "SECRET_UNAVAILABLE",
+                  "CHECKPOINT_CORRUPTED",
+                  "CHECKPOINT_WRITE_FAILED",
+                  "INPUT_PROVIDER_FAILED",
+                  "TRANSACTION_DEADLINE_EXCEEDED",
+                  "TABULAR_INVALID",
+                  "DOWNLOAD_INVALID",
+                  "CANCELLED"
+                ]
+              }
+            ]
+          },
+          "detail": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$"
+              }
+            ]
+          },
+          "attempts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "delivery": {
+            "enum": [
+              "NOT_DELIVERED",
+              "COMMITTED",
+              "UNCERTAIN",
+              "REJECTED"
+            ]
+          }
+        }
+      }
+    },
+    "output": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "rows",
+            "detail"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "COMMITTED",
+                "WITHHELD",
+                "FAILED"
+              ]
+            },
+            "rows": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "detail": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}
