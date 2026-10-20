@@ -87,6 +87,28 @@ def test_nome_divergente_e_identity_mismatch_sem_clique(harness):  # type: ignor
     assert harness.lab_counter("excluir") == 0
 
 
+def test_glifo_de_fonte_de_icone_nao_muda_o_nome(harness):  # type: ignore[no-untyped-def]
+    # botão "<i class=fa> Entrar</i>": o Playwright calcula " Entrar"; o nome gravado é "Entrar"
+    harness.open_adv()
+    harness.actions.click("adv.entrar_icone", idempotent=True)
+    assert harness.lab_counter("entrarIcone") == 1
+
+
+def test_glifo_de_icone_nao_afrouxa_o_texto(harness):  # type: ignore[no-untyped-def]
+    harness.open_adv()
+    with pytest.raises(TargetIdentityMismatch) as e:
+        harness.actions.click("adv.entrar_icone_nome_errado")
+    assert e.value.detail == "name"
+    assert harness.lab_counter("entrarIcone") == 0
+
+
+def test_descendente_aria_hidden_fora_do_nome(harness):  # type: ignore[no-untyped-def]
+    # "Avançar <span aria-hidden>→</span>": nome exposto "Avançar" (com include_hidden o Playwright diria "Avançar →")
+    harness.open_adv()
+    harness.actions.click("adv.avancar_seta", idempotent=True)
+    assert harness.lab_counter("avancar") == 1
+
+
 def test_tag_divergente_e_identity_mismatch(harness):  # type: ignore[no-untyped-def]
     harness.open_adv()
     with pytest.raises(TargetIdentityMismatch) as e:

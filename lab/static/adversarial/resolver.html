@@ -16,7 +16,10 @@
 
 <section aria-label="Identidade">
   <button id="excluir" type="button">Cancelar</button>
-  <a id="link-falso" href="#">Salvar link</a></section>
+  <a id="link-falso" href="#">Salvar link</a>
+  <style>.icone-fonte::before { content: "\f090"; }</style>
+  <button id="entrar-icone" type="button"><i class="icone-fonte"> Entrar</i></button>
+  <a id="avancar-seta" href="#avancar">Avançar <span aria-hidden="true">→</span></a></section>
 
 <section aria-label="Campos">
   <label for="campo-texto">Nome</label><input id="campo-texto" name="nome" autocomplete="off">
@@ -54,7 +57,7 @@
   <button id="efeito-lento" type="button">Registrar devagar</button></section>
 </main>
 <script>
-window.__lab = {cliques: 0, duplos: 0, salvar: 0, enviarReal: 0, enviarSosia: 0, excluir: 0, coberto: 0, cobertoTemp: 0, habilita: 0, tardio: 0};
+window.__lab = {cliques: 0, duplos: 0, salvar: 0, enviarReal: 0, enviarSosia: 0, excluir: 0, coberto: 0, cobertoTemp: 0, habilita: 0, tardio: 0, entrarIcone: 0, avancar: 0};
 const $ = id => document.getElementById(id);
 $('salvar').addEventListener('click', () => window.__lab.salvar++);
 $('contador').addEventListener('click', () => { window.__lab.cliques++; $('cliques').textContent = window.__lab.cliques; });
@@ -62,6 +65,8 @@ $('contador').addEventListener('dblclick', () => { window.__lab.duplos++; $('dup
 $('enviar-real').addEventListener('click', () => window.__lab.enviarReal++);
 document.querySelector('.enviar').addEventListener('click', () => window.__lab.enviarSosia++);
 $('excluir').addEventListener('click', () => window.__lab.excluir++);
+$('entrar-icone').addEventListener('click', () => window.__lab.entrarIcone++);
+$('avancar-seta').addEventListener('click', () => window.__lab.avancar++);
 $('coberto').addEventListener('click', () => window.__lab.coberto++);
 $('coberto-temp').addEventListener('click', () => window.__lab.cobertoTemp++);
 $('habilita').addEventListener('click', () => window.__lab.habilita++);
